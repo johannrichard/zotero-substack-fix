@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+pyzotero = "*"
+python-dotenv = "*"
+requests = "*"
+python-dateutil = "*"
+extruct = "*"
+w3lib = "*"
+
+[dev-packages]
+black = "*"
+ruff = "*"
+pytest = "*"
+mypy = "*"
+
+[requires]
+python_version = "3.11"
+
+[scripts]
+format = "black src tests"
+lint = "ruff check src tests"
+test = "pytest"
