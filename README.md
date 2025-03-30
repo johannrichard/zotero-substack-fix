@@ -1,3 +1,141 @@
-# What and Why?
+# Zotero Substack Fixer
 
-Zotero (both the Web Scraper and the Apps) currently fail to properly identify Substack Posts hosted outside of a `substack.com` subdomain (i.e. on third-party domain). This script will iterate through Websites and will update their Metadata if they turn out to be Substack posts.
+Zotero (both the Web Scraper and the Apps) currently fail to properly identify Substack Posts hosted outside of a `substack.com` subdomain (i.e. on third-party domain). This script will iterate through Websites and will update their Metadata if they turn out to be Substack posts. It will also at the same go clean up the URL's in your library and remove tracking links.
+
+## Features
+
+- Identifies Substack posts hosted on custom domains
+- Updates metadata for Substack posts (dates, authors, etc.)
+- Cleans URLs by removing tracking parameters
+- Adds appropriate tags for categorization
+- Generates detailed reports of changes
+- Supports both personal and group libraries
+- Batch processing to handle large libraries efficiently
+
+## Prerequisites
+
+- Python 3.11 or higher
+- `pipenv` for dependency management (install with `pip install pipenv` if not already installed)
+- A Zotero account with API access
+- Your Zotero API key (get it from [Zotero Settings](https://www.zotero.org/settings/keys))
+
+## Installation
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/johannrichard/zotero-substack-fix.git
+   cd zotero-substack-fix
+   ```
+
+2. Install dependencies using pipenv:
+
+   ```bash
+   make install
+   ```
+
+3. Create a `.env` file with your Zotero credentials:
+
+   ```bash
+   cat > .env << EOF
+   ZOTERO_API_KEY=your_api_key_here
+   ZOTERO_USER_ID=your_user_id_here
+   ZOTERO_LIBRARY_TYPE=user  # or 'group'
+   ZOTERO_GROUP_ID=your_group_id_here  # only if using a group library
+   EOF
+   ```
+
+## Usage
+
+The script can be run in several ways:
+
+### Using Make Commands
+
+- Run with default settings:
+
+  ```bash
+  make run
+  ```
+
+- Perform a dry run (no changes made):
+
+  ```bash
+  make dry-run
+  ```
+
+- Run with a custom report file:
+
+  ```bash
+  make run ARGS="--report custom_report.md"
+  ```
+
+### Direct Python Execution
+
+- Basic run:
+
+  ```bash
+  pipenv run python src/main.py
+  ```
+
+- Dry run:
+
+  ```bash
+  pipenv run python src/main.py --dry-run
+  ```
+
+- Generate report:
+
+  ```bash
+  pipenv run python src/main.py --report
+  ```
+
+### Available Options
+
+- `--dry-run`: Simulate updates without modifying your library
+- `--report [FILE]`: Generate a Markdown report of changes (default: `Changes_YYYYMMDD.md`)
+
+## Development
+
+- Format code:
+
+  ```bash
+  make format
+  ```
+
+- Run linting:
+
+  ```bash
+  make lint
+  ```
+
+- Clean build artifacts:
+
+  ```bash
+  make clean
+  ```
+
+## Output
+
+The script provides:
+
+- Progress updates during processing
+- Summary of changes made
+- Optional detailed Markdown report
+- Clear error messages if issues occur
+
+### Report Format
+
+The generated report includes:
+
+- URL cleaning updates
+- Substack metadata changes
+- Items grouped by blog/publisher
+- Timestamps and detailed modifications
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
