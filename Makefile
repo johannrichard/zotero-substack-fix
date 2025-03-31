@@ -7,9 +7,7 @@ PIPENV := pipenv
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-install:  ## Install project dependencies
-	$(PYTHON) -m pip install --upgrade pip
-	$(PYTHON) -m pip install pipenv
+install:  ## Install project dependencies (`pip` and `pipenv` need to be instaled separately)
 	$(PIPENV) install --dev
 
 update:  ## Update dependencies to latest versions
@@ -34,6 +32,9 @@ run:  ## Run the Zotero Substack analyzer
 
 dry-run:  ## Run the analyzer in dry-run mode
 	$(PIPENV) run python src/main.py --dry-run $(ARGS)
+
+stream:  ## Run the Zotero Substack analyzer in stream mode
+	$(PIPENV) run python src/main.py --stream $(ARGS)
 
 check:  ## Run all code quality checks
 	$(MAKE) format
