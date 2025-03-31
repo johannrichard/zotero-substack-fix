@@ -20,9 +20,6 @@ from dateutil import parser as date_parser
 import asyncio
 from streaming import ZoteroStreamHandler
 
-# Load environment variables from .env file
-load_dotenv()
-
 # Zotero API configuration
 ZOTERO_API_KEY = os.getenv("ZOTERO_API_KEY")
 ZOTERO_LIBRARY_ID = os.getenv("ZOTERO_LIBRARY_ID")
@@ -255,7 +252,7 @@ def prepare_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     # Update item type
     updated_data["itemType"] = "blogPost"
     updated_data["websiteType"] = "Substack Newsletter"
-    
+
     # Update blog title
     if metadata["publisher"]:
         updated_data["blogTitle"] = metadata["publisher"]
@@ -356,9 +353,11 @@ def process_item(item: Dict) -> Optional[Dict]:
         updated_data["url"] = cleaned_url
         needs_update = True
         print(f"Cleaned URL: {url} → {cleaned_url}")
-        
+
     # Download and check for Substack only if we haven't already categorized it
-    if not (any(tag["tag"] == "zotero:processed" for tag in item["data"].get("tags", []))):
+    if not (
+        any(tag["tag"] == "zotero:processed" for tag in item["data"].get("tags", []))
+    ):
 
         html = download_page(cleaned_url)
         if html and check_if_substack(html, cleaned_url):
@@ -369,7 +368,7 @@ def process_item(item: Dict) -> Optional[Dict]:
             # Extract and update Substack metadata
             metadata = extract_metadata(html, url)
             updated_data = prepare_item_update(item, metadata)
-            
+
             # Clean URL
             updated_data["url"] = cleaned_url
             needs_update = True
@@ -408,14 +407,14 @@ def process_item(item: Dict) -> Optional[Dict]:
             print(f"✗ Not a Substack site: {title[:50]}...")
     else:
         print(f"✓ Already categorized as Substack: {title[:50]}...")
-    
-    if(needs_update):
+
+    if needs_update:
         # Add a tag to indicate processing
         if "tags" not in updated_data:
             updated_data["tags"] = []
         updated_data["tags"].append({"tag": "zotero:processed"})
         print("✓ Tag added: zotero:processed")
-        
+
     return updated_data if needs_update else None
 
 
@@ -576,6 +575,9 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Run in streaming mode to process updates in real-time",
     )
+    parser.add_argument(
+        "-e", "--env", type=str, help="Path to custom .env file", default=".env"
+    )
     return parser.parse_args()
 
 
@@ -650,11 +652,33 @@ async def run_streaming_mode():
     await handler.run()
 
 
+def load_environment(env_file: str = ".env") -> None:
+    """
+    Load environment variables from specified .env file
+
+    Args:
+        env_file: Path to .env file
+    """
+    if not os.path.exists(env_file):
+        raise FileNotFoundError(f"Environment file not found: {env_file}")
+
+    load_dotenv(env_file)
+
+    # Validate required variables
+    if not os.getenv("ZOTERO_API_KEY"):
+        raise ValueError("ZOTERO_API_KEY is not set in environment file")
+    if not os.getenv("ZOTERO_LIBRARY_ID"):
+        raise ValueError("ZOTERO_LIBRARY_ID is not set in environment file")
+
+
 if __name__ == "__main__":
     try:
         print("Starting Substack Analyzer...")
         args = parse_args()
-        
+
+        # Load environment from specified file
+        load_environment(args.env)
+
         if args.stream:
             print("Running in streaming mode...")
             asyncio.run(run_streaming_mode())
