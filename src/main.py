@@ -25,9 +25,8 @@ load_dotenv()
 
 # Zotero API configuration
 ZOTERO_API_KEY = os.getenv("ZOTERO_API_KEY")
-ZOTERO_USER_ID = os.getenv("ZOTERO_USER_ID")
+ZOTERO_LIBRARY_ID = os.getenv("ZOTERO_LIBRARY_ID")
 ZOTERO_LIBRARY_TYPE = os.getenv("ZOTERO_LIBRARY_TYPE", "user")  # 'user' or 'group'
-ZOTERO_GROUP_ID = os.getenv("ZOTERO_GROUP_ID")  # Only needed if library type is 'group'
 
 # Statistics for reporting
 stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
@@ -108,7 +107,7 @@ def mask_key(key: str) -> str:
 
 def get_zotero_client():
     """Create and return a Pyzotero client instance."""
-    library_id = ZOTERO_USER_ID if ZOTERO_LIBRARY_TYPE == "user" else ZOTERO_GROUP_ID
+    library_id = ZOTERO_LIBRARY_ID
     library_type = ZOTERO_LIBRARY_TYPE
 
     print(f"Connecting to Zotero API with key: {mask_key(ZOTERO_API_KEY)}")
@@ -442,11 +441,8 @@ def analyze_zotero_library(
     if not ZOTERO_API_KEY:
         raise ValueError("ZOTERO_API_KEY is not set in environment variables")
 
-    if ZOTERO_LIBRARY_TYPE == "user" and not ZOTERO_USER_ID:
-        raise ValueError("ZOTERO_USER_ID is not set in environment variables")
-
-    if ZOTERO_LIBRARY_TYPE == "group" and not ZOTERO_GROUP_ID:
-        raise ValueError("ZOTERO_GROUP_ID is not set in environment variables")
+    if not ZOTERO_LIBRARY_ID:
+        raise ValueError("ZOTERO_LIBRARY_ID is not set in environment variables")
 
     # Create Pyzotero client
     zot = get_zotero_client()
