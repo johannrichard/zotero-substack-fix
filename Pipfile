@@ -10,6 +10,8 @@ requests = "*"
 python-dateutil = "*"
 extruct = "*"
 w3lib = "*"
+backoff = "*"  # For exponential retry
+websockets = ">=10.0"
 
 [dev-packages]
 black = "*"

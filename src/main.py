@@ -17,7 +17,8 @@ from datetime import datetime
 from pathlib import Path
 from pyzotero import zotero
 from dateutil import parser as date_parser
-
+import asyncio
+from streaming import ZoteroStreamHandler
 
 # Load environment variables from .env file
 load_dotenv()
@@ -569,10 +570,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--report",
-        nargs="?",  # Make the argument optional
-        const=None,  # Use None when --report is provided without value
+        nargs="?",
+        const=None,
         metavar="FILE",
         help="Generate a Markdown report of changes. If FILE is not provided, uses Changes_YYYYMMDD.md",
+    )
+    parser.add_argument(
+        "--stream",
+        action="store_true",
+        help="Run in streaming mode to process updates in real-time",
     )
     return parser.parse_args()
 
@@ -641,11 +647,24 @@ def generate_markdown_report(
     print(f"\nReport generated: {filename}")
 
 
+async def run_streaming_mode():
+    """Run the script in streaming mode"""
+    zot = get_zotero_client()
+    handler = ZoteroStreamHandler(zot, ZOTERO_API_KEY)
+    await handler.run()
+
+
 if __name__ == "__main__":
     try:
         print("Starting Substack Analyzer...")
         args = parse_args()
-        analyze_zotero_library(dry_run=args.dry_run, report_file=args.report)
+        
+        if args.stream:
+            print("Running in streaming mode...")
+            asyncio.run(run_streaming_mode())
+        else:
+            print("Running in batch mode...")
+            analyze_zotero_library(dry_run=args.dry_run, report_file=args.report)
     except Exception as e:
         print(f"Error running analysis: {str(e)}")
         exit(1)
