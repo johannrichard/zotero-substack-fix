@@ -19,11 +19,7 @@ from pyzotero import zotero
 from dateutil import parser as date_parser
 import asyncio
 from streaming import ZoteroStreamHandler
-
-# Zotero API configuration
-ZOTERO_API_KEY = os.getenv("ZOTERO_API_KEY")
-ZOTERO_LIBRARY_ID = os.getenv("ZOTERO_LIBRARY_ID")
-ZOTERO_LIBRARY_TYPE = os.getenv("ZOTERO_LIBRARY_TYPE", "user")  # 'user' or 'group'
+from dataclasses import dataclass
 
 # Statistics for reporting
 stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
@@ -102,15 +98,45 @@ def mask_key(key: str) -> str:
     return f"{key[:4]}...{key[-4:]}"
 
 
-def get_zotero_client():
+@dataclass
+class ZoteroConfig:
+    """Zotero API configuration"""
+    api_key: str
+    library_id: str
+    library_type: str = "user"
+
+    @classmethod
+    def from_env(cls, env_file: Optional[str] = None) -> "ZoteroConfig":
+        """Load configuration from environment variables"""
+        if env_file:
+            load_dotenv(env_file)
+            
+        api_key = os.getenv("ZOTERO_API_KEY")
+        library_id = os.getenv("ZOTERO_LIBRARY_ID")
+        library_type = os.getenv("ZOTERO_LIBRARY_TYPE", "user")
+        
+        if not api_key:
+            raise ValueError("ZOTERO_API_KEY is not set in environment")
+        if not library_id:
+            raise ValueError("ZOTERO_LIBRARY_ID is not set in environment")
+            
+        return cls(
+            api_key=api_key,
+            library_id=library_id,
+            library_type=library_type
+        )
+
+
+def get_zotero_client(config: ZoteroConfig) -> zotero.Zotero:
     """Create and return a Pyzotero client instance."""
-    library_id = ZOTERO_LIBRARY_ID
-    library_type = ZOTERO_LIBRARY_TYPE
-
-    print(f"Connecting to Zotero API with key: {mask_key(ZOTERO_API_KEY)}")
-    print(f"Library type: {library_type}, Library ID: {library_id}")
-
-    return zotero.Zotero(library_id, library_type, ZOTERO_API_KEY)
+    print(f"Connecting to Zotero API with key: {mask_key(config.api_key)}")
+    print(f"Library type: {config.library_type}, Library ID: {config.library_id}")
+    
+    return zotero.Zotero(
+        config.library_id,
+        config.library_type,
+        config.api_key
+    )
 
 
 def download_page(url: str) -> str:
@@ -433,18 +459,13 @@ def confirm_action(question: str) -> bool:
 
 
 def analyze_zotero_library(
-    dry_run: bool = False, report_file: Optional[str] = None
+    config: ZoteroConfig,
+    dry_run: bool = False,
+    report_file: Optional[str] = None
 ) -> None:
     """Main function to analyze Zotero library via API"""
-    # Validate API key and user ID
-    if not ZOTERO_API_KEY:
-        raise ValueError("ZOTERO_API_KEY is not set in environment variables")
-
-    if not ZOTERO_LIBRARY_ID:
-        raise ValueError("ZOTERO_LIBRARY_ID is not set in environment variables")
-
     # Create Pyzotero client
-    zot = get_zotero_client()
+    zot = get_zotero_client(config)
 
     # Get all web items
     print("Retrieving webpage and blogPost items from Zotero...")
@@ -645,10 +666,10 @@ def generate_markdown_report(
     print(f"\nReport generated: {filename}")
 
 
-async def run_streaming_mode():
+async def run_streaming_mode(config: ZoteroConfig):
     """Run the script in streaming mode"""
-    zot = get_zotero_client()
-    handler = ZoteroStreamHandler(zot, ZOTERO_API_KEY)
+    zot = get_zotero_client(config)
+    handler = ZoteroStreamHandler(zot, config.api_key)
     await handler.run()
 
 
@@ -663,7 +684,7 @@ def load_environment(env_file: str = ".env") -> None:
         raise FileNotFoundError(f"Environment file not found: {env_file}")
 
     load_dotenv(env_file)
-
+  
     # Validate required variables
     if not os.getenv("ZOTERO_API_KEY"):
         raise ValueError("ZOTERO_API_KEY is not set in environment file")
@@ -675,16 +696,20 @@ if __name__ == "__main__":
     try:
         print("Starting Substack Analyzer...")
         args = parse_args()
-
-        # Load environment from specified file
-        load_environment(args.env)
-
+        
+        # Load configuration from environment
+        config = ZoteroConfig.from_env(args.env)
+        
         if args.stream:
             print("Running in streaming mode...")
-            asyncio.run(run_streaming_mode())
+            asyncio.run(run_streaming_mode(config))
         else:
             print("Running in batch mode...")
-            analyze_zotero_library(dry_run=args.dry_run, report_file=args.report)
+            analyze_zotero_library(
+                config,
+                dry_run=args.dry_run,
+                report_file=args.report
+            )
     except Exception as e:
         print(f"Error running analysis: {str(e)}")
         exit(1)
