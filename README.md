@@ -11,6 +11,8 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
 - Generates detailed reports of changes
 - Supports both personal and group libraries
 - Batch processing to handle large libraries efficiently
+- Real-time processing via Zotero's Streaming API
+- Supports both batch and streaming modes
 
 ## Prerequisites
 
@@ -39,17 +41,18 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
    ```bash
    cat > .env << EOF
    ZOTERO_API_KEY=your_api_key_here
-   ZOTERO_USER_ID=your_user_id_here
+   ZOTERO_LIBRARY_ID=your_library_id_here
    ZOTERO_LIBRARY_TYPE=user  # or 'group'
-   ZOTERO_GROUP_ID=your_group_id_here  # only if using a group library
    EOF
    ```
 
 ## Usage
 
-The script can be run in several ways:
+The script can be run in two modes: batch processing or streaming.
 
-### Using Make Commands
+### Batch Processing
+
+#### Using Make Commands
 
 - Run with default settings:
 
@@ -69,7 +72,7 @@ The script can be run in several ways:
   make run ARGS="--report custom_report.md"
   ```
 
-### Direct Python Execution
+#### Direct Python Execution
 
 - Basic run:
 
@@ -89,10 +92,35 @@ The script can be run in several ways:
   pipenv run python src/main.py --report
   ```
 
+### Streaming Mode
+
+The streaming mode listens to Zotero's WebSocket API for real-time updates and processes new or modified items as they come in.
+
+- Run in streaming mode:
+
+  ```bash
+  make stream
+  ```
+
+- Direct execution:
+
+  ```bash
+  pipenv run python src/main.py --stream
+  ```
+
+In streaming mode, the script will:
+
+- Connect to Zotero's WebSocket API
+- Listen for library changes in real-time
+- Process new or modified items automatically
+- Reconnect automatically if the connection drops
+- Use exponential backoff for connection retries
+
 ### Available Options
 
 - `--dry-run`: Simulate updates without modifying your library
 - `--report [FILE]`: Generate a Markdown report of changes (default: `Changes_YYYYMMDD.md`)
+- `--stream`: Run in streaming mode to process updates in real-time
 
 ## Development
 
