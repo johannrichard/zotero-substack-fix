@@ -48,7 +48,7 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
 
 ## Usage
 
-The script can be run in two modes: batch processing or streaming.
+The script can be run in two modes: batch processing or streaming. Batch mode is best suited to fix an existing library, whereas streaming mode can be used to keep your library updated, effortlessly. Just keep adding those Substack posts to your Library and they will end up neatly.
 
 ### Batch Processing
 
