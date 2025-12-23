@@ -20,6 +20,7 @@ from dateutil import parser as date_parser
 import asyncio
 from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
+from bs4 import BeautifulSoup
 
 # Statistics for reporting
 stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
@@ -170,19 +171,20 @@ def get_substack_content_type(url: str) -> Optional[str]:
         r"substack\.com/notes/",
     ]
 
-    # Chat/discussion patterns - typically in comments sections
-    chat_patterns = [
-        r"/p/.+/comment/",
-        r"/p/.+/comments",
-    ]
+    # Chat/discussion patterns - only for Substack domains
+    # Check if URL contains 'substack' to avoid false positives
+    if "substack" in url.lower():
+        chat_patterns = [
+            r"/p/.+/comment/",
+            r"/p/.+/comments",
+        ]
+        for pattern in chat_patterns:
+            if re.search(pattern, url, re.IGNORECASE):
+                return "chat"
 
     for pattern in note_patterns:
         if re.search(pattern, url, re.IGNORECASE):
             return "note"
-
-    for pattern in chat_patterns:
-        if re.search(pattern, url, re.IGNORECASE):
-            return "chat"
 
     return None  # Regular post
 
@@ -247,8 +249,6 @@ def extract_note_title(html: str) -> str:
     Returns:
         Generated title string
     """
-    from bs4 import BeautifulSoup
-
     try:
         soup = BeautifulSoup(html, "html.parser")
 
@@ -362,14 +362,12 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
 
         # For notes and chats, override title with extracted content
         if content_type in ["note", "chat"]:
-            # Try to extract title from HTML if not already set or if it's generic
-            if not metadata["title"] or metadata["title"] == "":
+            # Try to extract title from HTML if not already set
+            if not metadata["title"]:
                 metadata["title"] = extract_note_title(html)
 
             # Also try to get author from HTML if not in JSON-LD
             if not metadata["author"]:
-                from bs4 import BeautifulSoup
-
                 soup = BeautifulSoup(html, "html.parser")
                 # Look for author meta tags
                 author_meta = soup.find("meta", attrs={"name": "author"}) or soup.find(
