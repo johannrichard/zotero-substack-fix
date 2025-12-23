@@ -101,6 +101,7 @@ def mask_key(key: str) -> str:
 @dataclass
 class ZoteroConfig:
     """Zotero API configuration"""
+
     api_key: str
     library_id: str
     library_type: str = "user"
@@ -110,33 +111,25 @@ class ZoteroConfig:
         """Load configuration from environment variables"""
         if env_file:
             load_dotenv(env_file)
-            
+
         api_key = os.getenv("ZOTERO_API_KEY")
         library_id = os.getenv("ZOTERO_LIBRARY_ID")
         library_type = os.getenv("ZOTERO_LIBRARY_TYPE", "user")
-        
+
         if not api_key:
             raise ValueError("ZOTERO_API_KEY is not set in environment")
         if not library_id:
             raise ValueError("ZOTERO_LIBRARY_ID is not set in environment")
-            
-        return cls(
-            api_key=api_key,
-            library_id=library_id,
-            library_type=library_type
-        )
+
+        return cls(api_key=api_key, library_id=library_id, library_type=library_type)
 
 
 def get_zotero_client(config: ZoteroConfig) -> zotero.Zotero:
     """Create and return a Pyzotero client instance."""
     print(f"Connecting to Zotero API with key: {mask_key(config.api_key)}")
     print(f"Library type: {config.library_type}, Library ID: {config.library_id}")
-    
-    return zotero.Zotero(
-        config.library_id,
-        config.library_type,
-        config.api_key
-    )
+
+    return zotero.Zotero(config.library_id, config.library_type, config.api_key)
 
 
 def download_page(url: str) -> str:
@@ -161,27 +154,42 @@ def download_page(url: str) -> str:
         return ""
 
 
-def is_substack_note_url(url: str) -> bool:
+def get_substack_content_type(url: str) -> Optional[str]:
     """
-    Check if URL is a Substack note/forum post
+    Determine the type of Substack content from URL
 
     Args:
         url: URL to check
 
     Returns:
-        Boolean indicating if it's a note/forum post
+        Content type: 'note', 'chat', or None for regular posts
     """
+    # Note patterns - includes notes and standalone note pages
     note_patterns = [
         r"substack\.com/@[\w-]+/note/",
         r"substack\.com/notes/",
-        r"substack\.com/@[\w-]+/p/comments/",
     ]
-    return any(re.search(pattern, url, re.IGNORECASE) for pattern in note_patterns)
+
+    # Chat/discussion patterns - typically in comments sections
+    chat_patterns = [
+        r"/p/.+/comment/",
+        r"/p/.+/comments",
+    ]
+
+    for pattern in note_patterns:
+        if re.search(pattern, url, re.IGNORECASE):
+            return "note"
+
+    for pattern in chat_patterns:
+        if re.search(pattern, url, re.IGNORECASE):
+            return "chat"
+
+    return None  # Regular post
 
 
 def check_if_substack(html: str, url: str) -> bool:
     """
-    Check if the HTML content is from a Substack site using LD+JSON metadata
+    Check if the HTML content is from a Substack site using LD+JSON metadata or URL patterns
 
     Args:
         html: HTML content to check
@@ -190,10 +198,20 @@ def check_if_substack(html: str, url: str) -> bool:
     Returns:
         Boolean indicating if it's a Substack site
     """
-    if not html or is_substack_note_url(url):
+    if not html:
         return False
 
-    # Extract JSON-LD data
+    # Check if it's a note or chat - these are also Substack content
+    content_type = get_substack_content_type(url)
+    if content_type in ["note", "chat"]:
+        # Verify it's actually from Substack by checking URL or HTML
+        if "substack.com" in url.lower():
+            return True
+        # Could also check HTML for Substack markers
+        if "substack" in html.lower()[:5000]:  # Check first part of HTML
+            return True
+
+    # Extract JSON-LD data for regular posts
     metadata = extruct.extract(
         html, base_url=get_base_url(html, url), syntaxes=["json-ld"]
     )
@@ -219,6 +237,76 @@ def check_if_substack(html: str, url: str) -> bool:
     return False
 
 
+def extract_note_title(html: str) -> str:
+    """
+    Extract title for a Substack note by getting first ~20 words or first sentence
+
+    Args:
+        html: HTML content
+
+    Returns:
+        Generated title string
+    """
+    from bs4 import BeautifulSoup
+
+    try:
+        soup = BeautifulSoup(html, "html.parser")
+
+        # Try to find the main content
+        # Substack notes typically have content in specific divs
+        content = None
+
+        # Look for common Substack content containers
+        selectors = [
+            'div[class*="note-content"]',
+            'div[class*="post-content"]',
+            "article",
+            'div[class*="body"]',
+            "div.markup",
+        ]
+
+        for selector in selectors:
+            elements = soup.select(selector)
+            if elements:
+                content = elements[0].get_text(separator=" ", strip=True)
+                break
+
+        # Fallback to body text if no specific container found
+        if not content:
+            body = soup.find("body")
+            if body:
+                content = body.get_text(separator=" ", strip=True)
+
+        if not content:
+            return "Substack Note"
+
+        # Clean up the text
+        content = re.sub(r"\s+", " ", content).strip()
+
+        # Split into sentences (basic sentence detection)
+        sentences = re.split(r"[.!?]+\s+", content)
+        if sentences:
+            first_sentence = sentences[0].strip()
+
+            # If first sentence is reasonable length (< 100 chars), use it
+            if len(first_sentence) < 100 and len(first_sentence) > 10:
+                return first_sentence
+
+        # Otherwise, get first ~20 words
+        words = content.split()[:20]
+        title = " ".join(words)
+
+        # Add ellipsis if we cut it off
+        if len(content.split()) > 20:
+            title += "..."
+
+        return title if title else "Substack Note"
+
+    except Exception as e:
+        print(f"Warning: Could not extract note title: {str(e)}")
+        return "Substack Note"
+
+
 def extract_metadata(html: str, url: str) -> Dict[str, str]:
     """
     Extract metadata from HTML content using JSON-LD
@@ -230,7 +318,17 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
     Returns:
         Dictionary of extracted metadata
     """
-    metadata = {"title": "", "author": "", "date": "", "publisher": ""}
+    metadata = {
+        "title": "",
+        "author": "",
+        "date": "",
+        "publisher": "",
+        "content_type": None,
+    }
+
+    # Determine content type
+    content_type = get_substack_content_type(url)
+    metadata["content_type"] = content_type
 
     try:
         # Extract JSON-LD data
@@ -241,7 +339,7 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
         if data.get("json-ld"):
             for item in data["json-ld"]:
                 if item.get("@type") == "NewsArticle":
-                    # Extract title
+                    # Extract title (but will override for notes)
                     metadata["title"] = item.get("headline", "")
 
                     # Extract date
@@ -262,6 +360,24 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                     # Once we find a valid NewsArticle, we can break
                     break
 
+        # For notes and chats, override title with extracted content
+        if content_type in ["note", "chat"]:
+            # Try to extract title from HTML if not already set or if it's generic
+            if not metadata["title"] or metadata["title"] == "":
+                metadata["title"] = extract_note_title(html)
+
+            # Also try to get author from HTML if not in JSON-LD
+            if not metadata["author"]:
+                from bs4 import BeautifulSoup
+
+                soup = BeautifulSoup(html, "html.parser")
+                # Look for author meta tags
+                author_meta = soup.find("meta", attrs={"name": "author"}) or soup.find(
+                    "meta", attrs={"property": "article:author"}
+                )
+                if author_meta:
+                    metadata["author"] = author_meta.get("content", "")
+
     except Exception as e:
         print(f"Error extracting metadata: {str(e)}")
 
@@ -275,13 +391,29 @@ def prepare_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     # Create a copy of the item data
     updated_data = dict(item["data"])
 
-    # Update item type
-    updated_data["itemType"] = "blogPost"
-    updated_data["websiteType"] = "Substack Newsletter"
+    # Determine item type based on content type
+    content_type = metadata.get("content_type")
 
-    # Update blog title
-    if metadata["publisher"]:
-        updated_data["blogTitle"] = metadata["publisher"]
+    if content_type in ["note", "chat"]:
+        # Notes and chats are forum posts
+        updated_data["itemType"] = "forumPost"
+        updated_data["postType"] = (
+            "Substack Note" if content_type == "note" else "Substack Chat"
+        )
+        # Use forumTitle instead of blogTitle for forum posts
+        if metadata["publisher"]:
+            updated_data["forumTitle"] = metadata["publisher"]
+    else:
+        # Regular posts are blog posts
+        updated_data["itemType"] = "blogPost"
+        updated_data["websiteType"] = "Substack Newsletter"
+        # Update blog title
+        if metadata["publisher"]:
+            updated_data["blogTitle"] = metadata["publisher"]
+
+    # Update title - especially important for notes where we generate it
+    if metadata["title"]:
+        updated_data["title"] = metadata["title"]
 
     # Handle date parsing and updates
     if metadata["date"]:
@@ -459,16 +591,14 @@ def confirm_action(question: str) -> bool:
 
 
 def analyze_zotero_library(
-    config: ZoteroConfig,
-    dry_run: bool = False,
-    report_file: Optional[str] = None
+    config: ZoteroConfig, dry_run: bool = False, report_file: Optional[str] = None
 ) -> None:
     """Main function to analyze Zotero library via API"""
     # Create Pyzotero client
     zot = get_zotero_client(config)
 
     # Get all web items
-    print("Retrieving webpage and blogPost items from Zotero...")
+    print("Retrieving webpage, blogPost, and forumPost items from Zotero...")
     web_items = []
     updates = []  # New list to collect all updates (not just batch)
     batch_updates = []  # List for batch processing
@@ -477,7 +607,7 @@ def analyze_zotero_library(
     start = 0
     limit = 100
 
-    # First get webpage items
+    # Get webpage items
     while True:
         items = zot.items(itemType="webpage", start=start, limit=limit)
         if not items:
@@ -490,9 +620,22 @@ def analyze_zotero_library(
     # Reset start for blogPost items
     start = 0
 
-    # Then get blogPost items
+    # Get blogPost items
     while True:
         items = zot.items(itemType="blogPost", start=start, limit=limit)
+        if not items:
+            break
+        web_items.extend(items)
+        start += len(items)
+        if len(items) < limit:
+            break
+
+    # Reset start for forumPost items
+    start = 0
+
+    # Get forumPost items (in case there are existing ones to re-process)
+    while True:
+        items = zot.items(itemType="forumPost", start=start, limit=limit)
         if not items:
             break
         web_items.extend(items)
@@ -684,7 +827,7 @@ def load_environment(env_file: str = ".env") -> None:
         raise FileNotFoundError(f"Environment file not found: {env_file}")
 
     load_dotenv(env_file)
-  
+
     # Validate required variables
     if not os.getenv("ZOTERO_API_KEY"):
         raise ValueError("ZOTERO_API_KEY is not set in environment file")
@@ -696,19 +839,17 @@ if __name__ == "__main__":
     try:
         print("Starting Substack Analyzer...")
         args = parse_args()
-        
+
         # Load configuration from environment
         config = ZoteroConfig.from_env(args.env)
-        
+
         if args.stream:
             print("Running in streaming mode...")
             asyncio.run(run_streaming_mode(config))
         else:
             print("Running in batch mode...")
             analyze_zotero_library(
-                config,
-                dry_run=args.dry_run,
-                report_file=args.report
+                config, dry_run=args.dry_run, report_file=args.report
             )
     except Exception as e:
         print(f"Error running analysis: {str(e)}")
