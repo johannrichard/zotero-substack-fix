@@ -172,8 +172,8 @@ def get_substack_content_type(url: str) -> Optional[str]:
     ]
 
     # Chat/discussion patterns - only for Substack domains
-    # Check if URL contains 'substack' to avoid false positives
-    if "substack" in url.lower():
+    # Use more specific domain check to avoid false positives
+    if re.search(r"substack\.com", url, re.IGNORECASE):
         chat_patterns = [
             r"/p/.+/comment/",
             r"/p/.+/comments",
@@ -209,8 +209,8 @@ def check_if_substack(html: str, url: str) -> bool:
         # Verify it's actually from Substack by checking URL or HTML
         if "substack.com" in url.lower():
             return True
-        # Could also check HTML for Substack markers
-        if "substack" in html.lower()[:5000]:  # Check first part of HTML
+        # Check HTML for Substack markers (more efficient with regex)
+        if re.search(r"substack", html[:5000], re.IGNORECASE):
             return True
 
     # Extract JSON-LD data for regular posts
@@ -239,18 +239,20 @@ def check_if_substack(html: str, url: str) -> bool:
     return False
 
 
-def extract_note_title(html: str) -> str:
+def extract_note_title(html: str, soup: Optional[BeautifulSoup] = None) -> str:
     """
     Extract title for a Substack note by getting first ~20 words or first sentence
 
     Args:
         html: HTML content
+        soup: Optional pre-parsed BeautifulSoup object for efficiency
 
     Returns:
         Generated title string
     """
     try:
-        soup = BeautifulSoup(html, "html.parser")
+        if soup is None:
+            soup = BeautifulSoup(html, "html.parser")
 
         # Try to find the main content
         # Substack notes typically have content in specific divs
@@ -362,13 +364,15 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
 
         # For notes and chats, override title with extracted content
         if content_type in ["note", "chat"]:
+            # Parse HTML once for efficiency
+            soup = BeautifulSoup(html, "html.parser")
+
             # Try to extract title from HTML if not already set
             if not metadata["title"]:
-                metadata["title"] = extract_note_title(html)
+                metadata["title"] = extract_note_title(html, soup)
 
             # Also try to get author from HTML if not in JSON-LD
             if not metadata["author"]:
-                soup = BeautifulSoup(html, "html.parser")
                 # Look for author meta tags
                 author_meta = soup.find("meta", attrs={"name": "author"}) or soup.find(
                     "meta", attrs={"property": "article:author"}
