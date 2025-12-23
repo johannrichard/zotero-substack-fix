@@ -2,10 +2,17 @@
 
 Zotero (both the Web Scraper and the Apps) currently fail to properly identify Substack Posts hosted outside of a `substack.com` subdomain (i.e. on third-party domain). This script will iterate through Websites and will update their Metadata if they turn out to be Substack posts. It will also at the same go clean up the URL's in your library and remove tracking links.
 
+The script now supports **all types of Substack content**:
+- **Regular posts** - Categorized as "Blog Post" items
+- **Notes** - Categorized as "Forum Post" items with auto-generated titles from the first ~20 words or first sentence
+- **Chats/Comments** - Categorized as "Forum Post" items
+
 ## Features
 
-- Identifies Substack posts hosted on custom domains
-- Updates metadata for Substack posts (dates, authors, etc.)
+- Identifies Substack posts, notes, and chats hosted on custom domains
+- Updates metadata for all Substack content types (dates, authors, etc.)
+- Automatically generates titles for notes from content
+- Properly categorizes content: posts as "Blog Post", notes/chats as "Forum Post"
 - Cleans URLs by removing tracking parameters
 - Adds appropriate tags for categorization
 - Generates detailed reports of changes
