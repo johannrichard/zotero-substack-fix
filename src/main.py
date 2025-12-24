@@ -165,6 +165,28 @@ def download_page(url: str) -> str:
         return ""
 
 
+def is_substack_domain(url: str) -> bool:
+    """
+    Safely check if URL is from a Substack domain
+
+    Args:
+        url: URL to check
+
+    Returns:
+        True if the domain is substack.com or a subdomain of substack.com
+    """
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if hostname:
+            # Check if hostname is exactly substack.com or ends with .substack.com
+            # This prevents matching malicious domains like evilsubstack.com
+            return hostname == "substack.com" or hostname.endswith(".substack.com")
+        return False
+    except Exception:
+        return False
+
+
 def get_substack_content_type(url: str) -> Optional[str]:
     """
     Determine the type of Substack content from URL
@@ -182,8 +204,8 @@ def get_substack_content_type(url: str) -> Optional[str]:
     ]
 
     # Chat/discussion patterns - only for Substack domains
-    # Check for 'substack.com' in domain to avoid false positives
-    if "substack.com" in url.lower():
+    # Use proper domain validation to prevent URL bypass attacks
+    if is_substack_domain(url):
         chat_patterns = [
             r"/p/[^/]+/comment/",  # Single comment URL
             r"/p/[^/]+/comments",  # Comments section (no trailing slash)
@@ -216,8 +238,8 @@ def check_if_substack(html: str, url: str) -> bool:
     # Check if it's a note or chat - these are also Substack content
     content_type = get_substack_content_type(url)
     if content_type in ["note", "chat"]:
-        # Verify it's actually from Substack by checking URL or HTML
-        if "substack.com" in url.lower():
+        # Verify it's actually from Substack by proper domain validation
+        if is_substack_domain(url):
             return True
         # Check HTML for specific Substack markers (limit search for performance)
         if re.search(r"substack\.com", html[:HTML_SEARCH_LIMIT], re.IGNORECASE):
