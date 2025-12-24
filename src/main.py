@@ -309,11 +309,83 @@ def extract_note_title(html: str, soup: Optional[BeautifulSoup] = None) -> str:
                 content = elements[0].get_text(separator=" ", strip=True)
                 break
 
-        # Fallback to body text if no specific container found
-        if not content:
-            body = soup.find("body")
-            if body:
-                content = body.get_text(separator=" ", strip=True)
+        def extract_metadata(html: str, url: str) -> Dict[str, Optional[str]]:
+            """
+            Extract metadata from HTML content using JSON-LD
+
+            Args:
+                html: HTML content
+                url: Original URL
+
+            Returns:
+                Dictionary of extracted metadata
+            """
+            metadata = {
+                "title": "",
+                "author": "",
+                "date": "",
+                "publisher": "",
+                "content_type": None,
+            }
+
+            # Determine content type
+            content_type = get_substack_content_type(url)
+            metadata["content_type"] = content_type
+
+            try:
+                # Extract JSON-LD data
+                data = extruct.extract(
+                    html, base_url=get_base_url(html, url), syntaxes=["json-ld"]
+                )
+
+                if data.get("json-ld"):
+                    for item in data["json-ld"]:
+                        if item.get("@type") == "NewsArticle":
+                            # Extract title (but will override for notes)
+                            metadata["title"] = item.get("headline", "")
+
+                            # Extract date
+                            metadata["date"] = item.get("datePublished", "")
+
+                            # Extract author
+                            authors = item.get("author", [])
+                            if authors and isinstance(authors, list):
+                                metadata["author"] = authors[0].get("name", "")
+                            elif authors and isinstance(authors, dict):
+                                metadata["author"] = authors.get("name", "")
+
+                            # Extract publisher
+                            publisher = item.get("publisher", {})
+                            if isinstance(publisher, dict):
+                                metadata["publisher"] = publisher.get("name", "")
+
+                            # Once we find a valid NewsArticle, we can break
+                            break
+
+                # For notes and chats, extract additional metadata from HTML if needed
+                if content_type in ["note", "chat"]:
+                    # Only parse HTML if we need to extract title or author
+                    if not metadata["title"] or not metadata["author"]:
+                        soup = BeautifulSoup(html, "html.parser")
+
+                        # Try to extract title from HTML if not already set
+                        if not metadata["title"]:
+                            metadata["title"] = extract_note_title(html, soup)
+
+                        # Also try to get author from HTML if not in JSON-LD
+                        if not metadata["author"]:
+                            # Look for author meta tags
+                            author_meta = soup.find(
+                                "meta", attrs={"name": "author"}
+                            ) or soup.find("meta", attrs={"property": "article:author"})
+                            if author_meta:
+                                metadata["author"] = author_meta.get("content", "")
+
+            except Exception as e:
+                print(f"Error extracting metadata: {str(e)}")
+
+            # Return collected metadata
+            return metadata
 
         if not content:
             return "Substack Note"
