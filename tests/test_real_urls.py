@@ -5,6 +5,10 @@ Tests with real Substack URLs to validate the implementation.
 
 Usage:
     pipenv run python tests/test_real_urls.py
+    
+To use auto-discovered test cases:
+    1. Run: pipenv run python tools/discover_substack_urls.py --use-defaults --test-output tests/discovered_test_urls.py
+    2. Uncomment the import below to include discovered URLs in tests
 """
 
 import sys
@@ -21,6 +25,14 @@ from main import (
     extract_metadata,
     extract_note_title,
 )
+
+# Uncomment to use auto-discovered test cases:
+# try:
+#     from discovered_test_urls import DISCOVERED_TEST_CASES
+#     USE_DISCOVERED = True
+# except ImportError:
+#     DISCOVERED_TEST_CASES = []
+#     USE_DISCOVERED = False
 
 
 def test_url_pattern_detection():
@@ -86,6 +98,12 @@ def test_url_pattern_detection():
             "Malicious similar domain (security test)",
         ),
     ]
+    
+    # Add discovered test cases if available
+    # Uncomment when using discovered URLs:
+    # if USE_DISCOVERED:
+    #     print(f"\nAdding {len(DISCOVERED_TEST_CASES)} auto-discovered test cases")
+    #     test_cases.extend(DISCOVERED_TEST_CASES)
 
     passed = 0
     failed = 0

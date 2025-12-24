@@ -113,6 +113,26 @@ JSON format:
 Python test data format:
 
 ```python
+# Test cases format (ready for test_real_urls.py)
+DISCOVERED_TEST_CASES = [
+    (
+        "https://astralcodexten.substack.com/p/some-article",
+        None,
+        "Discovered regular post",
+    ),
+    (
+        "https://substack.com/@username/note/p-12345",
+        "note",
+        "Discovered note",
+    ),
+    (
+        "https://substack.com/chat/123/post/uuid",
+        "chat",
+        "Discovered chat",
+    ),
+]
+
+# Raw URLs by type (for compatibility)
 DISCOVERED_TEST_URLS = {
     "posts": [
         "https://astralcodexten.substack.com/p/some-article",
@@ -121,25 +141,70 @@ DISCOVERED_TEST_URLS = {
         "https://substack.com/@username/note/p-12345",
     ],
     "chats": [
-        "https://astralcodexten.substack.com/p/some-article/comments",
+        "https://substack.com/chat/123/post/uuid",
     ],
 }
 ```
 
 ### Integrating with Tests
 
-To use discovered URLs in your tests:
+The discovery tool generates test cases in a format that `test_real_urls.py` can directly import and use.
+
+**Step 1: Generate test data**
 
 ```bash
-# Generate test data
-pipenv run python tools/discover_substack_urls.py --test-output tests/discovered_urls.py
+# Recommended: use verified starting URLs
+pipenv run python tools/discover_substack_urls.py --use-defaults --test-output tests/discovered_test_urls.py
+```
 
-# Import in your tests
-from discovered_urls import DISCOVERED_TEST_URLS
+**Step 2: Use in test_real_urls.py**
 
-# Use in test cases
-for url in DISCOVERED_TEST_URLS["posts"]:
-    test_post_detection(url)
+Open `tests/test_real_urls.py` and uncomment the import:
+
+```python
+# Uncomment these lines:
+try:
+    from discovered_test_urls import DISCOVERED_TEST_CASES
+    USE_DISCOVERED = True
+except ImportError:
+    DISCOVERED_TEST_CASES = []
+    USE_DISCOVERED = False
+```
+
+And uncomment the code that adds discovered test cases:
+
+```python
+# Uncomment this block:
+if USE_DISCOVERED:
+    print(f"\nAdding {len(DISCOVERED_TEST_CASES)} auto-discovered test cases")
+    test_cases.extend(DISCOVERED_TEST_CASES)
+```
+
+**Step 3: Run tests**
+
+```bash
+pipenv run python tests/test_real_urls.py
+```
+
+The tests will now include both the manually defined test cases and the auto-discovered ones.
+
+### Example Workflow
+
+Complete workflow to discover and test URLs:
+
+```bash
+# 1. Discover URLs from verified starting points
+pipenv run python tools/discover_substack_urls.py --use-defaults --test-output tests/discovered_test_urls.py
+
+# 2. Edit tests/test_real_urls.py to uncomment the import section
+
+# 3. Run tests with discovered URLs
+pipenv run python tests/test_real_urls.py
+
+# Output will show:
+# - 11 manually defined test cases
+# - N auto-discovered test cases
+# - Total: 11+N test cases
 ```
 
 ### Notes
