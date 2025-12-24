@@ -160,9 +160,24 @@ pipenv run python tests/test_real_urls.py
 
 See [tests/README.md](tests/README.md) for more details on running tests.
 
+### URL Discovery Tool
+
+A tool is available to discover real Substack URLs for testing:
+
+```bash
+# Discover posts, notes, and chat URLs
+pipenv run python tools/discover_substack_urls.py
+
+# Save to files for use in tests
+pipenv run python tools/discover_substack_urls.py --output discovered_urls.json --test-output tests/discovered_urls.py
+```
+
+See [tools/README.md](tools/README.md) for more details on the URL discovery tool.
+
 ## Documentation
 
 - [Implementation Approach Analysis](docs/IMPLEMENTATION_APPROACH.md) - Details on design decisions and alternative approaches considered
+- [Python Version Update Guide](docs/PYTHON_VERSION_UPDATE.md) - How to update your virtual environment to Python 3.11
 
 ## Output
 
