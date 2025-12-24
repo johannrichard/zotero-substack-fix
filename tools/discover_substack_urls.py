@@ -128,13 +128,26 @@ class SubstackDiscovery:
         
         return posts
 
-    def discover_notes(self, limit: int = 3) -> List[str]:
+    def discover_notes(self, limit: int = 3, starting_urls: List[str] = None) -> List[str]:
         """
         Discover Substack notes
         
         Looks for URLs matching /@username/note/ or /notes/ patterns
+        
+        Args:
+            limit: Maximum number of notes to discover
+            starting_urls: Optional list of known note URLs to start from
         """
         notes = []
+        
+        # Add any starting URLs first
+        if starting_urls:
+            for url in starting_urls:
+                if url not in notes:
+                    notes.append(url)
+                    print(f"  Starting with note: {url}")
+                    if len(notes) >= limit:
+                        return notes
         
         # Try the main Substack notes feed
         print("Searching for notes on substack.com")
@@ -166,28 +179,69 @@ class SubstackDiscovery:
         
         return notes
 
-    def discover_chats(self, subdomain: str, limit: int = 2) -> List[str]:
+    def discover_chats(self, subdomain: str = None, limit: int = 2, starting_urls: List[str] = None) -> List[str]:
         """
-        Discover chat/comment URLs from posts
+        Discover chat/comment URLs
         
-        Looks for comment sections on posts
+        Looks for comment sections on posts and chat threads
+        
+        Args:
+            subdomain: Optional subdomain to search for post comments
+            limit: Maximum number of chat URLs to discover
+            starting_urls: Optional list of known chat URLs to start from
         """
         chats = []
         
-        # First get some posts
-        posts = self.discover_posts(subdomain, limit=3)
+        # Add any starting URLs first
+        if starting_urls:
+            for url in starting_urls:
+                if url not in chats:
+                    chats.append(url)
+                    print(f"  Starting with chat: {url}")
+                    if len(chats) >= limit:
+                        return chats
         
-        for post_url in posts[:limit]:
-            # Try the comments section
-            comments_url = post_url.rstrip("/") + "/comments"
+        # Try to find chat threads on substack.com
+        print("Searching for chats on substack.com")
+        chat_urls = [
+            "https://substack.com/chat",
+        ]
+        
+        for chat_url in chat_urls:
+            html = self.fetch_url(chat_url)
             
-            # Verify it exists
-            html = self.fetch_url(comments_url)
-            if html and "comment" in html.lower():
-                chats.append(comments_url)
-                print(f"  Found chat: {comments_url}")
-                if len(chats) >= limit:
-                    break
+            if html:
+                soup = BeautifulSoup(html, "html.parser")
+                
+                # Look for chat thread links
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
+                    
+                    # Match chat patterns
+                    if re.search(r"/chat/\d+/post/", href):
+                        full_url = href if href.startswith("http") else f"https://substack.com{href}"
+                        if full_url not in chats:
+                            chats.append(full_url)
+                            print(f"  Found chat: {full_url}")
+                            if len(chats) >= limit:
+                                return chats
+        
+        # If we still need more and have a subdomain, look for post comments
+        if subdomain and len(chats) < limit:
+            print(f"Searching for post comments on {subdomain}")
+            posts = self.discover_posts(subdomain, limit=3)
+            
+            for post_url in posts[:limit - len(chats)]:
+                # Try the comments section
+                comments_url = post_url.rstrip("/") + "/comments"
+                
+                # Verify it exists
+                html = self.fetch_url(comments_url)
+                if html and "comment" in html.lower():
+                    chats.append(comments_url)
+                    print(f"  Found chat: {comments_url}")
+                    if len(chats) >= limit:
+                        break
         
         return chats
 
@@ -196,7 +250,9 @@ class SubstackDiscovery:
         num_domains: int = 3, 
         posts_per_domain: int = 2,
         num_notes: int = 3,
-        num_chats: int = 2
+        num_chats: int = 2,
+        starting_notes: List[str] = None,
+        starting_chats: List[str] = None
     ) -> Dict[str, List[str]]:
         """
         Run full discovery process
@@ -206,6 +262,8 @@ class SubstackDiscovery:
             posts_per_domain: Number of posts to find per domain
             num_notes: Number of notes to find
             num_chats: Number of chat URLs to find
+            starting_notes: Optional list of known note URLs to start from
+            starting_chats: Optional list of known chat URLs to start from
         """
         print("=" * 80)
         print("Starting Substack URL Discovery")
@@ -220,13 +278,16 @@ class SubstackDiscovery:
             self.discovered_urls["posts"].extend(posts)
         
         # Discover notes
-        notes = self.discover_notes(num_notes)
+        notes = self.discover_notes(num_notes, starting_urls=starting_notes)
         self.discovered_urls["notes"].extend(notes)
         
-        # Discover chats (from first domain)
-        if domains:
-            chats = self.discover_chats(domains[0], num_chats)
-            self.discovered_urls["chats"].extend(chats)
+        # Discover chats
+        chats = self.discover_chats(
+            subdomain=domains[0] if domains else None, 
+            limit=num_chats,
+            starting_urls=starting_chats
+        )
+        self.discovered_urls["chats"].extend(chats)
         
         print("\n" + "=" * 80)
         print("Discovery Complete")
@@ -302,8 +363,26 @@ def main():
         default=1.0,
         help="Delay between requests in seconds (default: 1.0)",
     )
+    parser.add_argument(
+        "--use-defaults",
+        action="store_true",
+        help="Use default starting URLs (recommended)",
+    )
     
     args = parser.parse_args()
+    
+    # Default starting URLs (known good examples)
+    starting_notes = None
+    starting_chats = None
+    
+    if args.use_defaults:
+        starting_notes = [
+            "https://substack.com/@contraptions/note/c-191022428",
+            "https://substack.com/@uncertaintymindset/note/c-190184676",
+        ]
+        starting_chats = [
+            "https://substack.com/chat/9973/post/64cc3fbb-ef7b-44a8-b8a9-9e336cc7e71b",
+        ]
     
     # Run discovery
     discovery = SubstackDiscovery(delay=args.delay)
@@ -312,6 +391,8 @@ def main():
         posts_per_domain=args.posts,
         num_notes=args.notes,
         num_chats=args.chats,
+        starting_notes=starting_notes,
+        starting_chats=starting_chats,
     )
     
     # Output JSON if requested
