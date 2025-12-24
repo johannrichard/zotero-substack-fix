@@ -22,6 +22,11 @@ from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
 
+# Constants for note title extraction
+MAX_SENTENCE_LENGTH = 100  # Maximum length for using first sentence as title
+MIN_SENTENCE_LENGTH = 10  # Minimum length for a valid sentence title
+NOTE_TITLE_WORD_COUNT = 20  # Number of words to extract for title
+
 # Statistics for reporting
 stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
 
@@ -172,11 +177,11 @@ def get_substack_content_type(url: str) -> Optional[str]:
     ]
 
     # Chat/discussion patterns - only for Substack domains
-    # Use more specific domain check to avoid false positives
-    if re.search(r"substack\.com", url, re.IGNORECASE):
+    # Use specific domain pattern to avoid false positives
+    if re.search(r"(?:^|[./])substack\.com(?:[:/]|$)", url, re.IGNORECASE):
         chat_patterns = [
-            r"/p/.+/comment/",
-            r"/p/.+/comments",
+            r"/p/[^/]+/comment/",
+            r"/p/[^/]+/comments",
         ]
         for pattern in chat_patterns:
             if re.search(pattern, url, re.IGNORECASE):
@@ -209,8 +214,8 @@ def check_if_substack(html: str, url: str) -> bool:
         # Verify it's actually from Substack by checking URL or HTML
         if "substack.com" in url.lower():
             return True
-        # Check HTML for Substack markers (more efficient with regex)
-        if re.search(r"substack", html[:5000], re.IGNORECASE):
+        # Check HTML for specific Substack markers
+        if re.search(r"substack\.com", html[:5000], re.IGNORECASE):
             return True
 
     # Extract JSON-LD data for regular posts
@@ -290,16 +295,19 @@ def extract_note_title(html: str, soup: Optional[BeautifulSoup] = None) -> str:
         if sentences:
             first_sentence = sentences[0].strip()
 
-            # If first sentence is reasonable length (< 100 chars), use it
-            if len(first_sentence) < 100 and len(first_sentence) > 10:
+            # If first sentence is reasonable length, use it
+            if (
+                len(first_sentence) < MAX_SENTENCE_LENGTH
+                and len(first_sentence) > MIN_SENTENCE_LENGTH
+            ):
                 return first_sentence
 
         # Otherwise, get first ~20 words
-        words = content.split()[:20]
-        title = " ".join(words)
+        words = content.split()
+        title = " ".join(words[:NOTE_TITLE_WORD_COUNT])
 
         # Add ellipsis if we cut it off
-        if len(content.split()) > 20:
+        if len(words) > NOTE_TITLE_WORD_COUNT:
             title += "..."
 
         return title if title else "Substack Note"
