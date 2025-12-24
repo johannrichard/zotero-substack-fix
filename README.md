@@ -149,6 +149,20 @@ In streaming mode, the script will:
   make clean
   ```
 
+## Testing
+
+Manual verification tests are available to validate URL detection and metadata extraction:
+
+```bash
+pipenv run python tests/test_real_urls.py
+```
+
+See [tests/README.md](tests/README.md) for more details on running tests.
+
+## Documentation
+
+- [Implementation Approach Analysis](docs/IMPLEMENTATION_APPROACH.md) - Details on design decisions and alternative approaches considered
+
 ## Output
 
 The script provides:
