@@ -12,6 +12,7 @@ extruct = "*"
 w3lib = "*"
 backoff = "*"  # For exponential retry
 websockets = ">=10.0"
+beautifulsoup4 = "*"
 
 [dev-packages]
 black = "*"
@@ -20,7 +21,7 @@ pytest = "*"
 mypy = "*"
 
 [requires]
-python_version = "3.9"
+python_version = "3.11"
 
 [scripts]
 format = "black src tests"
