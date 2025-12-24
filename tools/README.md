@@ -23,6 +23,7 @@ pipenv run python tools/discover_substack_urls.py
 ```
 
 This will search for:
+
 - 3 Substack domains
 - 2 posts per domain
 - 3 notes
@@ -64,6 +65,7 @@ pipenv run python tools/discover_substack_urls.py --delay 2.0
 ### Example Output
 
 JSON format:
+
 ```json
 {
   "posts": [
@@ -80,6 +82,7 @@ JSON format:
 ```
 
 Python test data format:
+
 ```python
 DISCOVERED_TEST_URLS = {
     "posts": [

@@ -166,6 +166,7 @@ xcode-select --install
 ## Compatibility Notes
 
 All dependencies used in this project are compatible with Python 3.11:
+
 - ✅ pyzotero
 - ✅ python-dotenv
 - ✅ requests
