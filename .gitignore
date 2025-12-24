@@ -69,3 +69,4 @@ logs/
 reports/
 Changes_*.md
 output/
+.vscode/settings.json
