@@ -295,16 +295,13 @@ def extract_note_title(html: str, soup: Optional[BeautifulSoup] = None) -> str:
         # Clean up the text
         content = re.sub(r"\s+", " ", content).strip()
 
-        # Split into sentences (basic sentence detection)
-        sentences = re.split(r"[.!?]+\s+", content)
+        # Split into sentences (handle end-of-content cases)
+        sentences = re.split(r"[.!?]+(?:\s+|$)", content)
         if sentences:
             first_sentence = sentences[0].strip()
 
             # If first sentence is reasonable length, use it
-            if (
-                len(first_sentence) < MAX_SENTENCE_LENGTH
-                and len(first_sentence) > MIN_SENTENCE_LENGTH
-            ):
+            if MIN_SENTENCE_LENGTH < len(first_sentence) < MAX_SENTENCE_LENGTH:
                 return first_sentence
 
         # Otherwise, get first ~20 words
