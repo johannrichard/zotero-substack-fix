@@ -5,6 +5,7 @@ This document analyzes the chosen implementation approach and compares it with a
 ## Problem Statement
 
 Extend Substack post parsing to support:
+
 1. **Notes**: Short-form content without explicit titles
 2. **Chats**: Comment/discussion threads
 3. Proper categorization in Zotero (blogPost vs forumPost)
@@ -14,11 +15,13 @@ Extend Substack post parsing to support:
 ### 1. URL Pattern-Based Detection
 
 **What we did:**
+
 - Created `get_substack_content_type()` to identify content type from URL patterns
 - Used regex patterns specific to each content type
 - Applied domain validation using `urlparse` for security
 
 **Why this approach:**
+
 - ✅ Fast and efficient (no HTML parsing for detection)
 - ✅ Reliable - URL structure is consistent
 - ✅ Secure - proper domain validation prevents bypass attacks
@@ -27,12 +30,14 @@ Extend Substack post parsing to support:
 ### 2. Content-Based Title Generation
 
 **What we did:**
+
 - Created `extract_note_title()` to generate titles from HTML content
 - First tries to extract first sentence (10-100 chars)
 - Falls back to first 20 words with ellipsis
 - Uses BeautifulSoup for HTML parsing
 
 **Why this approach:**
+
 - ✅ Generates meaningful titles from content
 - ✅ Handles various HTML structures
 - ✅ Configurable via named constants
@@ -41,11 +46,13 @@ Extend Substack post parsing to support:
 ### 3. Conditional Parsing
 
 **What we did:**
+
 - Only parse HTML when metadata is missing
 - Reuse BeautifulSoup instance for both title and author extraction
 - Limit HTML search scope for performance
 
 **Why this approach:**
+
 - ✅ Avoids unnecessary parsing
 - ✅ Efficient resource usage
 - ✅ Performance optimized
@@ -58,10 +65,12 @@ Extend Substack post parsing to support:
 Parse HTML first, look for Substack-specific meta tags to determine content type.
 
 **Pros:**
+
 - Could work for custom domains
 - Might catch edge cases
 
 **Cons:**
+
 - ❌ Slower (requires HTML download and parsing for every URL)
 - ❌ More fragile (meta tags could change)
 - ❌ Complex logic needed
@@ -75,10 +84,12 @@ Parse HTML first, look for Substack-specific meta tags to determine content type
 Use Substack's API (if available) to determine content type and get metadata.
 
 **Pros:**
+
 - Official data source
 - Always up-to-date
 
 **Cons:**
+
 - ❌ No public API documented
 - ❌ Would require authentication
 - ❌ Rate limiting concerns
@@ -92,10 +103,12 @@ Use Substack's API (if available) to determine content type and get metadata.
 Train a classifier to identify content type from URL and/or HTML features.
 
 **Pros:**
+
 - Could handle edge cases
 - Adaptive to changes
 
 **Cons:**
+
 - ❌ Massive overkill for this problem
 - ❌ Requires training data
 - ❌ Complex to maintain
@@ -110,15 +123,18 @@ Train a classifier to identify content type from URL and/or HTML features.
 Use various heuristics to find the "main" content and extract title.
 
 **Examples:**
+
 - Look for `<h1>`, `<h2>` tags
 - Find largest text block
 - Use readability algorithms
 
 **Pros:**
+
 - Might be more accurate in some cases
 - Could handle various page layouts
 
 **Cons:**
+
 - ❌ More complex code
 - ❌ Harder to debug
 - ❌ Less predictable results
@@ -132,10 +148,12 @@ Use various heuristics to find the "main" content and extract title.
 Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 
 **Pros:**
+
 - Battle-tested
 - Handles many edge cases
 
 **Cons:**
+
 - ❌ Heavy dependencies
 - ❌ Overkill for our needs
 - ❌ Less control over output
@@ -148,6 +166,7 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 ### Functional Correctness
 
 **Tests prove:**
+
 - ✅ All URL patterns correctly identified
 - ✅ Security validation works (blocks malicious domains)
 - ✅ Title extraction produces reasonable results
@@ -156,22 +175,26 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 ### Non-Functional Requirements
 
 **Performance:**
+
 - ✅ Minimal HTML parsing (conditional)
 - ✅ Fast URL pattern matching
 - ✅ Efficient BeautifulSoup reuse
 
 **Security:**
+
 - ✅ CodeQL scan: 0 vulnerabilities
 - ✅ Proper domain validation
 - ✅ No URL bypass attacks possible
 
 **Maintainability:**
+
 - ✅ Clear, documented code
 - ✅ Named constants for configuration
 - ✅ Modular design
 - ✅ Comprehensive tests
 
 **Compatibility:**
+
 - ✅ No breaking changes
 - ✅ Works with batch and streaming modes
 - ✅ Backward compatible
@@ -183,6 +206,7 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 **Trade-off:** Chat/comment detection only works on `substack.com` domains, not custom domains.
 
 **Rationale:**
+
 - Avoids false positives on non-Substack sites
 - Custom domain comments are rare
 - Security over feature completeness
@@ -194,6 +218,7 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 **Trade-off:** Title extraction uses simple heuristics (first sentence or 20 words) rather than sophisticated NLP.
 
 **Rationale:**
+
 - Simple and predictable
 - Fast and lightweight
 - Sufficient for user needs
@@ -206,6 +231,7 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 **Trade-off:** Only search first 5000 characters of HTML for Substack markers.
 
 **Rationale:**
+
 - Performance optimization
 - Substack markers appear early in HTML
 - Prevents processing huge pages
@@ -215,6 +241,7 @@ Use libraries like `newspaper3k` or `trafilatura` for content extraction.
 ## Conclusion
 
 The chosen approach is:
+
 - ✅ **Simple and maintainable**
 - ✅ **Performant and efficient**
 - ✅ **Secure and robust**
@@ -226,6 +253,7 @@ Alternative approaches were considered but rejected for valid reasons. The imple
 ## Future Improvements
 
 If needed, we could:
+
 1. Add ML-based title extraction (if simple approach insufficient)
 2. Support custom domain chat detection (if demand exists)
 3. Add more sophisticated content extraction (if required)

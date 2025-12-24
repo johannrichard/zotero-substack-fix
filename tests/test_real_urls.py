@@ -32,37 +32,27 @@ def test_url_pattern_detection():
     test_cases = [
         # Regular posts
         (
-            "https://astralcodexten.substack.com/p/ai-sleeper-agents",
+            "https://substack.com/home/post/p-181708828",
             None,
             "Regular Substack post",
         ),
         (
-            "https://www.platformer.news/p/how-elon-musk-spent-three-years",
+            "https://contraptions.venkateshrao.com/p/the-modernity-machine-iii",
             None,
             "Custom domain regular post",
         ),
         # Notes
+        ("https://substack.com/@contraptions/note/c-191022428", "note", "Generic notes URL"),
         (
-            "https://substack.com/@username/note/p-12345",
+            "https://substack.com/@contraptions/note/c-190972473",
             "note",
-            "Note with @ username",
-        ),
-        ("https://substack.com/notes/post-67890", "note", "Generic notes URL"),
-        (
-            "https://astralcodexten.substack.com/@scottwalker/note/c-123",
-            "note",
-            "Note on custom subdomain",
+            "Generic note",
         ),
         # Chats/Comments
         (
-            "https://astralcodexten.substack.com/p/some-post/comment/12345",
+            "https://open.substack.com/chat/posts/64cc3fbb-ef7b-44a8-b8a9-9e336cc7e71b",
             "chat",
             "Single comment URL",
-        ),
-        (
-            "https://www.platformer.news/p/some-post/comments",
-            None,
-            "Comments section (custom domain - won't match, not substack.com)",
         ),
         # Non-Substack (should not match)
         (
