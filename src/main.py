@@ -197,26 +197,30 @@ def get_substack_content_type(url: str) -> Optional[str]:
     Returns:
         Content type: 'note', 'chat', or None for regular posts
     """
-    # Note patterns - includes notes and standalone note pages
-    note_patterns = [
-        r"substack\.com/@[\w-]+/note/",
-        r"substack\.com/notes/",
-    ]
+    # All Substack-specific patterns require domain validation
+    if not is_substack_domain(url):
+        return None
 
-    # Chat/discussion patterns - only for Substack domains
-    # Use proper domain validation to prevent URL bypass attacks
-    if is_substack_domain(url):
-        chat_patterns = [
-            r"/p/[^/]+/comment/",  # Single comment URL
-            r"/p/[^/]+/comments",  # Comments section (no trailing slash)
-        ]
-        for pattern in chat_patterns:
-            if re.search(pattern, url, re.IGNORECASE):
-                return "chat"
+    # Note patterns - includes notes and standalone note pages
+    # These patterns are specific to substack.com domain
+    note_patterns = [
+        r"/@[\w-]+/note/",
+        r"/notes/",
+    ]
 
     for pattern in note_patterns:
         if re.search(pattern, url, re.IGNORECASE):
             return "note"
+
+    # Chat/discussion patterns
+    chat_patterns = [
+        r"/p/[^/]+/comment/",  # Single comment URL
+        r"/p/[^/]+/comments",  # Comments section (no trailing slash)
+    ]
+
+    for pattern in chat_patterns:
+        if re.search(pattern, url, re.IGNORECASE):
+            return "chat"
 
     return None  # Regular post
 
@@ -394,23 +398,24 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                     # Once we find a valid NewsArticle, we can break
                     break
 
-        # For notes and chats, override title with extracted content
+        # For notes and chats, extract additional metadata from HTML if needed
         if content_type in ["note", "chat"]:
-            # Parse HTML once for efficiency
-            soup = BeautifulSoup(html, "html.parser")
+            # Only parse HTML if we need to extract title or author
+            if not metadata["title"] or not metadata["author"]:
+                soup = BeautifulSoup(html, "html.parser")
 
-            # Try to extract title from HTML if not already set
-            if not metadata["title"]:
-                metadata["title"] = extract_note_title(html, soup)
+                # Try to extract title from HTML if not already set
+                if not metadata["title"]:
+                    metadata["title"] = extract_note_title(html, soup)
 
-            # Also try to get author from HTML if not in JSON-LD
-            if not metadata["author"]:
-                # Look for author meta tags
-                author_meta = soup.find("meta", attrs={"name": "author"}) or soup.find(
-                    "meta", attrs={"property": "article:author"}
-                )
-                if author_meta:
-                    metadata["author"] = author_meta.get("content", "")
+                # Also try to get author from HTML if not in JSON-LD
+                if not metadata["author"]:
+                    # Look for author meta tags
+                    author_meta = soup.find(
+                        "meta", attrs={"name": "author"}
+                    ) or soup.find("meta", attrs={"property": "article:author"})
+                    if author_meta:
+                        metadata["author"] = author_meta.get("content", "")
 
     except Exception as e:
         print(f"Error extracting metadata: {str(e)}")
