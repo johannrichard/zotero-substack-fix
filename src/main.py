@@ -27,6 +27,11 @@ MAX_SENTENCE_LENGTH = 100  # Maximum length for using first sentence as title
 MIN_SENTENCE_LENGTH = 10  # Minimum length for a valid sentence title
 NOTE_TITLE_WORD_COUNT = 20  # Number of words to extract for title
 
+# Constants for HTML processing
+HTML_SEARCH_LIMIT = (
+    5000  # Limit HTML substring search to first N characters for performance
+)
+
 # Statistics for reporting
 stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
 
@@ -177,11 +182,11 @@ def get_substack_content_type(url: str) -> Optional[str]:
     ]
 
     # Chat/discussion patterns - only for Substack domains
-    # Use specific domain pattern to avoid false positives
-    if re.search(r"(?:^|[./])substack\.com(?:[:/]|$)", url, re.IGNORECASE):
+    # Check for 'substack.com' in domain to avoid false positives
+    if "substack.com" in url.lower():
         chat_patterns = [
-            r"/p/[^/]+/comment/",
-            r"/p/[^/]+/comments",
+            r"/p/[^/]+/comment/",  # Single comment URL
+            r"/p/[^/]+/comments",  # Comments section (no trailing slash)
         ]
         for pattern in chat_patterns:
             if re.search(pattern, url, re.IGNORECASE):
@@ -214,8 +219,8 @@ def check_if_substack(html: str, url: str) -> bool:
         # Verify it's actually from Substack by checking URL or HTML
         if "substack.com" in url.lower():
             return True
-        # Check HTML for specific Substack markers
-        if re.search(r"substack\.com", html[:5000], re.IGNORECASE):
+        # Check HTML for specific Substack markers (limit search for performance)
+        if re.search(r"substack\.com", html[:HTML_SEARCH_LIMIT], re.IGNORECASE):
             return True
 
     # Extract JSON-LD data for regular posts
