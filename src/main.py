@@ -215,6 +215,7 @@ def get_substack_content_type(url: str) -> Optional[str]:
     # Chat/discussion patterns
     chat_patterns = [
         r"/chat/\d+/post/",  # Chat thread URL (e.g., /chat/9973/post/uuid)
+        r"/chat/posts/",  # Chat posts URL (e.g., /chat/posts/uuid)
         r"/p/[^/]+/comment/",  # Single comment URL
         r"/p/[^/]+/comments",  # Comments section (no trailing slash)
     ]

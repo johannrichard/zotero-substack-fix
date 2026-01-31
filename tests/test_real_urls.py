@@ -73,7 +73,12 @@ def test_url_pattern_detection():
         (
             "https://substack.com/chat/9973/post/64cc3fbb-ef7b-44a8-b8a9-9e336cc7e71b",
             "chat",
-            "Chat thread URL",
+            "Chat thread URL with numeric ID",
+        ),
+        (
+            "https://open.substack.com/chat/posts/64cc3fbb-ef7b-44a8-b8a9-9e336cc7e71b",
+            "chat",
+            "Chat posts URL (plural)",
         ),
         (
             "https://astralcodexten.substack.com/p/some-post/comment/12345",
