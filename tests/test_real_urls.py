@@ -34,6 +34,10 @@ from main import (
 #     DISCOVERED_TEST_CASES = []
 #     USE_DISCOVERED = False
 
+# Default values when commented
+DISCOVERED_TEST_CASES = []
+USE_DISCOVERED = False
+
 
 def test_url_pattern_detection():
     """Test URL pattern detection with various Substack URL formats"""
@@ -163,57 +167,74 @@ def test_domain_validation():
 
 
 def test_real_url_detection():
-    """Test with a real Substack URL (requires internet)"""
+    """Test with real Substack URLs (requires internet)"""
     print("\n" + "=" * 80)
     print("Testing Real URL Detection (requires internet)")
     print("=" * 80)
 
-    # Use a well-known Substack post
-    test_url = "https://astralcodexten.substack.com/p/ai-sleeper-agents"
+    # Collect URLs to test
+    test_urls = ["https://astralcodexten.substack.com/p/ai-sleeper-agents"]
+    
+    # Add discovered URLs if available
+    if USE_DISCOVERED:
+        discovered_urls = [url for url, _, _ in DISCOVERED_TEST_CASES]
+        print(f"\nAdding {len(discovered_urls)} discovered URLs to real URL tests")
+        test_urls.extend(discovered_urls)
+    
+    passed = 0
+    failed = 0
+    
+    for test_url in test_urls:
+        print(f"\n{'-' * 80}")
+        print(f"Testing URL: {test_url}")
+        print("Downloading page...")
 
-    print(f"\nTesting URL: {test_url}")
-    print("Downloading page...")
+        try:
+            html = download_page(test_url)
+            if not html:
+                print("✗ Failed to download page")
+                failed += 1
+                continue
 
-    try:
-        html = download_page(test_url)
-        if not html:
-            print("✗ Failed to download page")
-            return False
+            print(f"✓ Downloaded {len(html)} bytes")
 
-        print(f"✓ Downloaded {len(html)} bytes")
+            # Test if it's detected as Substack
+            is_substack = check_if_substack(html, test_url)
+            print(f"Is Substack: {is_substack}")
 
-        # Test if it's detected as Substack
-        is_substack = check_if_substack(html, test_url)
-        print(f"\nIs Substack: {is_substack}")
+            if not is_substack:
+                print("✗ Failed to detect as Substack")
+                failed += 1
+                continue
 
-        if not is_substack:
-            print("✗ Failed to detect as Substack")
-            return False
+            # Extract metadata
+            print("Extracting metadata...")
+            metadata = extract_metadata(html, test_url)
 
-        # Extract metadata
-        print("\nExtracting metadata...")
-        metadata = extract_metadata(html, test_url)
+            print("\nExtracted metadata:")
+            print(f"  Title: {metadata.get('title', 'N/A')[:80]}...")
+            print(f"  Author: {metadata.get('author', 'N/A')}")
+            print(f"  Date: {metadata.get('date', 'N/A')}")
+            print(f"  Publisher: {metadata.get('publisher', 'N/A')}")
+            print(f"  Content Type: {metadata.get('content_type', 'N/A')}")
 
-        print("\nExtracted metadata:")
-        print(f"  Title: {metadata.get('title', 'N/A')[:80]}...")
-        print(f"  Author: {metadata.get('author', 'N/A')}")
-        print(f"  Date: {metadata.get('date', 'N/A')}")
-        print(f"  Publisher: {metadata.get('publisher', 'N/A')}")
-        print(f"  Content Type: {metadata.get('content_type', 'N/A')}")
+            # Verify we got some metadata
+            if metadata.get("title") and metadata.get("author"):
+                print("✓ Successfully extracted metadata")
+                passed += 1
+            else:
+                print("✗ Metadata extraction incomplete")
+                failed += 1
 
-        # Verify we got some metadata
-        if metadata.get("title") and metadata.get("author"):
-            print("\n✓ Successfully extracted metadata")
-            return True
-        else:
-            print("\n✗ Metadata extraction incomplete")
-            return False
-
-    except Exception as e:
-        print(f"\n✗ Error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+        except Exception as e:
+            print(f"✗ Error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            failed += 1
+    
+    print(f"\n{'=' * 80}")
+    print(f"Results: {passed} passed, {failed} failed out of {len(test_urls)} URLs")
+    return failed == 0
 
 
 def test_title_extraction():
