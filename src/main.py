@@ -279,62 +279,63 @@ def check_if_substack(html: str, url: str) -> bool:
 
 def extract_note_title(html: str, soup: Optional[BeautifulSoup] = None) -> str:
     """
-    Extract title for a Substack note by getting first ~20 words or first sentence
+    Extract title for a Substack note/chat.
+    
+    For notes and chats, the content itself is typically the title.
+    We extract the full text content and clean it up.
 
     Args:
         html: HTML content
         soup: Optional pre-parsed BeautifulSoup object for efficiency
 
     Returns:
-        Generated title string
+        Generated title string (the full note/chat content)
     """
     try:
         if soup is None:
             soup = BeautifulSoup(html, "html.parser")
 
         # Try to find the main content
-        # Substack notes typically have content in specific divs
+        # Substack notes/chats typically have content in specific containers
         content = None
 
-        # Look for common Substack content containers
+        # Look for Substack-specific content containers
+        # Notes often use specific data attributes and class names
         selectors = [
+            # Substack note-specific selectors (most specific first)
+            'div.body',
             'div[class*="note-content"]',
+            'div[class*="post-body"]',
             'div[class*="post-content"]',
-            "article",
+            'div[data-testid*="post-body"]',
+            'div[data-testid*="note-body"]',
+            "article p",  # Article paragraphs
+            'div.markup',
             'div[class*="body"]',
-            "div.markup",
+            "article",
         ]
 
         for selector in selectors:
             elements = soup.select(selector)
             if elements:
-                content = elements[0].get_text(separator=" ", strip=True)
-                break
+                # For paragraph-based selectors, get all paragraphs
+                if selector.endswith(" p"):
+                    content = " ".join([p.get_text(strip=True) for p in elements])
+                else:
+                    content = elements[0].get_text(separator=" ", strip=True)
+                
+                if content and len(content.strip()) > 5:
+                    break
 
         if not content:
             return "Substack Note"
 
-        # Clean up the text
+        # Clean up the text (normalize whitespace)
         content = re.sub(r"\s+", " ", content).strip()
-
-        # Split into sentences (handle quotes, parentheses, and end-of-content)
-        sentences = re.split(r"[.!?]+[\"')\]]*(?:\s+|$)", content)
-        if sentences:
-            first_sentence = sentences[0].strip()
-
-            # If first sentence is reasonable length, use it
-            if MIN_SENTENCE_LENGTH < len(first_sentence) < MAX_SENTENCE_LENGTH:
-                return first_sentence
-
-        # Otherwise, get first ~20 words
-        words = content.split()
-        title = " ".join(words[:NOTE_TITLE_WORD_COUNT])
-
-        # Add ellipsis if we cut it off
-        if len(words) > NOTE_TITLE_WORD_COUNT:
-            title += "..."
-
-        return title if title else "Substack Note"
+        
+        # For notes/chats, return the full content as the title
+        # The test cases show that notes should have their full text as the title
+        return content if content else "Substack Note"
 
     except Exception as e:
         print(f"Warning: Could not extract note title: {str(e)}")
@@ -406,12 +407,73 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
 
                 # Also try to get author from HTML if not in JSON-LD
                 if not metadata["author"]:
-                    # Look for author meta tags
+                    author_name = None
+                    
+                    # Strategy 1: Look for author meta tags
                     author_meta = soup.find(
                         "meta", attrs={"name": "author"}
                     ) or soup.find("meta", attrs={"property": "article:author"})
                     if author_meta:
-                        metadata["author"] = author_meta.get("content", "")
+                        author_name = author_meta.get("content", "")
+                    
+                    # Strategy 2: Look for OpenGraph or Twitter card author
+                    if not author_name:
+                        og_author = soup.find("meta", attrs={"property": "og:author"}) or \
+                                   soup.find("meta", attrs={"property": "author"}) or \
+                                   soup.find("meta", attrs={"name": "twitter:creator"})
+                        if og_author:
+                            author_name = og_author.get("content", "")
+                    
+                    # Strategy 3: Look for author links or bylines in the page
+                    if not author_name:
+                        # Common Substack author selectors
+                        author_selectors = [
+                            'a[href*="/@"]',  # Substack profile links
+                            'a[class*="author"]',
+                            'span[class*="author"]',
+                            'div[class*="byline"]',
+                            '[data-testid*="author"]',
+                        ]
+                        
+                        for selector in author_selectors:
+                            author_elem = soup.select_one(selector)
+                            if author_elem:
+                                # Extract text from the element
+                                text = author_elem.get_text(strip=True)
+                                # For links like /@username, extract just the username
+                                if author_elem.name == 'a' and '/@' in author_elem.get('href', ''):
+                                    href = author_elem.get('href', '')
+                                    # Extract username from /@username path
+                                    match = re.search(r'/@([^/]+)', href)
+                                    if match:
+                                        author_name = match.group(1)
+                                        break
+                                elif text and len(text) > 0:
+                                    author_name = text
+                                    break
+                    
+                    # Strategy 4: Look in JSON-LD data that might be embedded
+                    if not author_name:
+                        scripts = soup.find_all("script", type="application/ld+json")
+                        for script in scripts:
+                            try:
+                                import json
+                                data = json.loads(script.string)
+                                if isinstance(data, dict):
+                                    # Check for author in various formats
+                                    if data.get("author"):
+                                        author_data = data["author"]
+                                        if isinstance(author_data, dict):
+                                            author_name = author_data.get("name", "")
+                                        elif isinstance(author_data, str):
+                                            author_name = author_data
+                                        if author_name:
+                                            break
+                            except:
+                                pass
+                    
+                    if author_name:
+                        metadata["author"] = author_name
 
     except Exception as e:
         print(f"Error extracting metadata: {str(e)}")
