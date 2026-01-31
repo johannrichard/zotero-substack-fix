@@ -26,18 +26,13 @@ from main import (
     extract_note_title,
 )
 
-# Uncomment to use auto-discovered test cases:
-# try:
-#     from discovered_test_urls import DISCOVERED_TEST_CASES
-#     USE_DISCOVERED = True
-# except ImportError:
-#     DISCOVERED_TEST_CASES = []
-#     USE_DISCOVERED = False
 
-# Default values when commented
-DISCOVERED_TEST_CASES = []
-USE_DISCOVERED = False
-
+try:
+    from discovered_test_urls import DISCOVERED_TEST_CASES
+    USE_DISCOVERED = True
+except ImportError:
+    DISCOVERED_TEST_CASES = []
+    USE_DISCOVERED = False
 
 def test_url_pattern_detection():
     """Test URL pattern detection with various Substack URL formats"""
@@ -105,9 +100,9 @@ def test_url_pattern_detection():
     
     # Add discovered test cases if available
     # Uncomment when using discovered URLs:
-    # if USE_DISCOVERED:
-    #     print(f"\nAdding {len(DISCOVERED_TEST_CASES)} auto-discovered test cases")
-    #     test_cases.extend(DISCOVERED_TEST_CASES)
+    if USE_DISCOVERED:
+        print(f"\nAdding {len(DISCOVERED_TEST_CASES)} auto-discovered test cases")
+        test_cases.extend(DISCOVERED_TEST_CASES)
 
     passed = 0
     failed = 0
