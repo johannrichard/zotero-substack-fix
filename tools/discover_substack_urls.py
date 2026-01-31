@@ -24,7 +24,7 @@ from bs4 import BeautifulSoup
 
 # Try to import metadata extraction functions if available
 try:
-    sys.path.insert(0, "../src")
+    sys.path.insert(0, "./src")
     from main import extract_metadata, get_substack_content_type, check_if_substack
     METADATA_AVAILABLE = True
 except ImportError:
