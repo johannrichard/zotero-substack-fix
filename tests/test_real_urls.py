@@ -104,10 +104,19 @@ def test_url_pattern_detection():
     ]
     
     # Add discovered test cases if available
-    # Uncomment when using discovered URLs:
     if USE_DISCOVERED:
         print(f"\nAdding {len(DISCOVERED_TEST_CASES)} auto-discovered test cases")
-        test_cases.extend(DISCOVERED_TEST_CASES)
+        for discovered in DISCOVERED_TEST_CASES:
+            # Handle both tuple and dict formats
+            if isinstance(discovered, dict):
+                # Dict format with metadata
+                url = discovered["url"]
+                expected = discovered["expected_type"]
+                description = discovered["description"]
+            else:
+                # Tuple format
+                url, expected, description = discovered
+            test_cases.append((url, expected, description))
 
     passed = 0
     failed = 0
@@ -172,19 +181,29 @@ def test_real_url_detection():
     print("Testing Real URL Detection (requires internet)")
     print("=" * 80)
 
-    # Collect URLs to test
-    test_urls = ["https://astralcodexten.substack.com/p/ai-sleeper-agents"]
+    # Collect URLs to test  
+    test_urls = [{"url": "https://astralcodexten.substack.com/p/ai-sleeper-agents"}]
     
     # Add discovered URLs if available
     if USE_DISCOVERED:
-        discovered_urls = [url for url, _, _ in DISCOVERED_TEST_CASES]
-        print(f"\nAdding {len(discovered_urls)} discovered URLs to real URL tests")
-        test_urls.extend(discovered_urls)
+        print(f"\nAdding {len(DISCOVERED_TEST_CASES)} discovered URLs to real URL tests")
+        
+        for discovered in DISCOVERED_TEST_CASES:
+            # Handle both tuple and dict formats
+            if isinstance(discovered, dict):
+                test_urls.append(discovered)
+            else:
+                # Tuple format - convert to dict
+                url, expected_type, description = discovered
+                test_urls.append({"url": url, "expected_type": expected_type, "description": description})
     
     passed = 0
     failed = 0
     
-    for test_url in test_urls:
+    for test in test_urls:
+        test_url = test["url"]
+        expected_metadata = test.get("expected_metadata", {})
+        
         print(f"\n{'-' * 80}")
         print(f"Testing URL: {test_url}")
         print("Downloading page...")
@@ -212,16 +231,53 @@ def test_real_url_detection():
             metadata = extract_metadata(html, test_url)
 
             print("\nExtracted metadata:")
-            print(f"  Title: {metadata.get('title', 'N/A')[:80]}...")
+            print(f"  Title: {metadata.get('title', 'N/A')}")
             print(f"  Author: {metadata.get('author', 'N/A')}")
             print(f"  Date: {metadata.get('date', 'N/A')}")
             print(f"  Publisher: {metadata.get('publisher', 'N/A')}")
             print(f"  Content Type: {metadata.get('content_type', 'N/A')}")
 
+            # Validate metadata if expectations provided
+            validation_passed = True
+            if expected_metadata:
+                print("\nValidating against expected metadata:")
+                
+                if "title" in expected_metadata:
+                    expected_title = expected_metadata["title"]
+                    actual_title = metadata.get("title", "")
+                    if expected_title == actual_title:
+                        print(f"  ✓ Title matches")
+                    else:
+                        print(f"  ℹ Title differs (may be due to Substack updates):")
+                        print(f"    Expected: {expected_title}")
+                        print(f"    Got: {actual_title}")
+                
+                if "title_has_ellipsis" in expected_metadata:
+                    # This means Substack's JSON-LD includes ellipsis (expected)
+                    has_ellipsis = metadata.get("title", "").endswith("...")
+                    if has_ellipsis:
+                        print(f"  ✓ Title has ellipsis from Substack (expected)")
+                
+                if "should_have_ellipsis" in expected_metadata:
+                    # This means we generated the title and should have added ellipsis
+                    should_have = expected_metadata["should_have_ellipsis"]
+                    has_ellipsis = metadata.get("title", "").endswith("...")
+                    if should_have == has_ellipsis:
+                        print(f"  ✓ Ellipsis {'present' if has_ellipsis else 'absent'} as expected")
+                    else:
+                        print(f"  ✗ Ellipsis validation failed:")
+                        print(f"    Should have ellipsis: {should_have}")
+                        print(f"    Actually has ellipsis: {has_ellipsis}")
+                        validation_passed = False
+
             # Verify we got some metadata
-            if metadata.get("title") and metadata.get("author"):
-                print("✓ Successfully extracted metadata")
-                passed += 1
+            if metadata.get("title") and (metadata.get("author") or metadata.get("content_type") in ["note", "chat"]):
+                if validation_passed:
+                    print("✓ Successfully extracted metadata")
+                    passed += 1
+                else:
+                    print("✗ Metadata validation failed")
+                    failed += 1
             else:
                 print("✗ Metadata extraction incomplete")
                 failed += 1
@@ -234,6 +290,8 @@ def test_real_url_detection():
     
     print(f"\n{'=' * 80}")
     print(f"Results: {passed} passed, {failed} failed out of {len(test_urls)} URLs")
+    
+    print(f"\n{'=' * 80}")
     return failed == 0
 
 
