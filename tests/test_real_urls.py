@@ -256,6 +256,8 @@ def test_title_extraction():
             </html>
             """,
             "First sentence extraction",
+            "This is a test note with enough words to demonstrate the title extraction",
+            False,  # Should NOT have ellipsis
         ),
         (
             """
@@ -268,6 +270,8 @@ def test_title_extraction():
             </html>
             """,
             "Skip short sentence, use longer",
+            "This is another sentence that is longer and should be used",
+            False,  # Should NOT have ellipsis
         ),
         (
             """
@@ -280,6 +284,8 @@ def test_title_extraction():
             </html>
             """,
             "Medium length sentence",
+            "A medium length sentence that should work fine as a title for this note",
+            False,  # Should NOT have ellipsis
         ),
         (
             """
@@ -293,17 +299,90 @@ def test_title_extraction():
             </body>
             </html>
             """,
-            "20-word extraction with ellipsis",
+            "20-word extraction with ellipsis (25 words total)",
+            "word1 word2 word3 word4 word5 word6 word7 word8 word9 word10 word11 word12 word13 word14 word15 word16 word17 word18 word19 word20",
+            True,  # SHOULD have ellipsis (more than 20 words)
+        ),
+        (
+            """
+            <html>
+            <body>
+                <div class="markup">
+                    This has exactly fifteen words so it should not add any ellipsis at all.
+                </div>
+            </body>
+            </html>
+            """,
+            "Short content (15 words) - NO ellipsis",
+            "This has exactly fifteen words so it should not add any ellipsis at all",
+            False,  # Should NOT have ellipsis (only 15 words, less than 20)
+        ),
+        (
+            """
+            <html>
+            <body>
+                <div class="markup">
+                    Five words only here.
+                </div>
+            </body>
+            </html>
+            """,
+            "Very short content (5 words) - NO ellipsis",
+            "Five words only here",
+            False,  # Should NOT have ellipsis (only 5 words)
+        ),
+        (
+            """
+            <html>
+            <body>
+                <div class="markup">
+                    This sentence has exactly twenty words which is the threshold for word extraction so no ellipsis should be added here.
+                </div>
+            </body>
+            </html>
+            """,
+            "Exactly 20 words - NO ellipsis",
+            "This sentence has exactly twenty words which is the threshold for word extraction so no ellipsis should be added here",
+            False,  # Should NOT have ellipsis (exactly 20 words)
         ),
     ]
 
-    for html, description in test_cases:
-        title = extract_note_title(html)
-        print(f"\n✓ {description}")
-        print(f"  Extracted: '{title}'")
-        print(f"  Length: {len(title)} chars")
+    passed = 0
+    failed = 0
 
-    return True
+    for html, description, expected_text, should_have_ellipsis in test_cases:
+        title = extract_note_title(html)
+        has_ellipsis = title.endswith("...")
+        
+        # Check if ellipsis presence matches expectation
+        ellipsis_correct = has_ellipsis == should_have_ellipsis
+        
+        # Check if the text content (without ellipsis) matches expected
+        title_text = title.rstrip(".")
+        expected_clean = expected_text.rstrip(".")
+        text_matches = title_text == expected_clean or title_text == expected_clean + "..."
+        
+        if ellipsis_correct and text_matches:
+            status = "✓"
+            passed += 1
+        else:
+            status = "✗"
+            failed += 1
+            
+        print(f"\n{status} {description}")
+        print(f"  Extracted: '{title}'")
+        print(f"  Length: {len(title)} chars, Words: {len(title.replace('...', '').split())}")
+        print(f"  Has ellipsis: {has_ellipsis} (expected: {should_have_ellipsis})")
+        
+        if not ellipsis_correct:
+            print(f"  ⚠️  ELLIPSIS MISMATCH!")
+        if not text_matches:
+            print(f"  ⚠️  TEXT MISMATCH!")
+            print(f"  Expected: '{expected_text}'")
+
+    print(f"\n{'=' * 80}")
+    print(f"Results: {passed} passed, {failed} failed")
+    return failed == 0
 
 
 def main():
