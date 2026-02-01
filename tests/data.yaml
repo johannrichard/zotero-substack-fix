@@ -1,0 +1,114 @@
+# Discovered Test Cases for Substack and LinkedIn Metadata Validation
+# Format: URL, Type, Description, and Expected Metadata (APA 7th style titles)
+
+test_cases:
+  substack:
+    - url: "https://substack.com/@contraptions/note/c-137298048"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "Bootstrapping is an interesting metaphor since it originated in an impossibility joke (Baron Munchsusen pulling himself out of a swamp"
+        author: "Venkatesh Rao"
+
+    - url: "https://substack.com/@contraptions/note/c-138536158"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "Haven’t thought about my piece cited here (the GUTs thing from 2018) in a long time. I think what Ben"
+        author: "Venkatesh Rao"
+
+    - url: "https://substack.com/@contraptions/note/c-156977833"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "AI discourse is missing a meso-level discourse level."
+        author: "Venkatesh Rao"
+        should_not_add_ellipsis: true
+
+    - url: "https://substack.com/@contraptions/note/c-181206471"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "Jeez. Literally everyone with any sort of attention capital is ending up here. Each time I see a big name"
+        author: "Venkatesh Rao"
+
+    - url: "https://substack.com/@johannrichard/note/c-155804782"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "Reminds me of Venkatesh‘s „LLMs as Index Funds“ and „Prompting is Managing“"
+        author: "Johann Richard"
+        should_not_add_ellipsis: true
+
+    - url: "https://substack.com/profile/1135584-johann/note/c-157883674"
+      type: "note"
+      description: "Discovered note"
+      metadata:
+        title: "That also seems to hint at the existence of an optimal “Finished:Unfinished” memory ratio (or tension) and range (ETTO frontier)"
+        author: "Johann Richard"
+        should_not_add_ellipsis: true
+
+    - url: "https://substack.com/profile/1135584-johann/note/c-131146264"
+      type: "note"
+      description: "Discovered Substack note"
+      metadata:
+        title: "Funnily enough, I came around a Dave Snowden post on LinkedIn"
+        author: "Johann Richard"
+        should_not_add_ellipsis: true
+
+  linkedin:
+    - url: "https://www.linkedin.com/pulse/eu-space-top-5-priorities-2024-beyond-thierry-breton-dmkhe"
+      type: "article"
+      description: "Discovered LinkedIn article"
+      metadata:
+        title: "EU Space: The Top 5 Priorities for 2024 and beyond"
+        author: "Thierry Breton"
+
+    - url: "https://www.linkedin.com/pulse/business-development-issues-space-industry-satsearch-03mae"
+      type: "article"
+      description: "Discovered LinkedIn article"
+      metadata:
+        title: "Business development issues in the space industry"
+        author: "Satsearch"
+
+    - url: "https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201"
+      type: "post"
+      description: "Discovered LinkedIn post"
+      metadata:
+        title: "Cynical on Sinek: Why Simon Sinek’s Works Fall Short for Leaders"
+        author: "Chaveso Cook"
+
+    - url: "https://www.linkedin.com/posts/scotthutcheson_fostering-ownership-insights-from-self-determination-activity-7204889856429146113-66Eq"
+      type: "post"
+      description: "Discovered LinkedIn post"
+      metadata:
+        title: "Fostering Ownership: Insights from Self-Determination Theory"
+        author: "Scott Hutcheson"
+
+    - url: "https://www.linkedin.com/posts/arsenii-hurtavtsov_natos-defence-innovation-accelerator-diana-activity-7341487429331140608-8GbV"
+      type: "comment"
+      description: "Discovered LinkedIn comment"
+      metadata:
+        title: "Is the DIANA evaluation same as last time? Where all the NATO countries have to agree on the winners?"
+        author: "Sebastian Riehn"
+
+    - url: "https://www.linkedin.com/posts/dave-snowden-2a93b_sitting-here-in-sheffield-having-presented-activity-7345793090101649408-PHeo"
+      type: "post"
+      description: "Discovered LinkedIn post"
+      metadata:
+        title: "Sitting here in Sheffield, having presented material on citizen engagement and also reflecting on some of the other presentations."
+        author: "Dave Snowden"
+
+    - url: "https://www.linkedin.com/posts/simonwardley_why-open-source-ai-matters-activity-7290388242078593024-nKL9"
+      type: "post"
+      description: "Discovered LinkedIn post"
+      metadata:
+        title: "Why open source AI matters?"
+        author: "Simon Wardley"
+
+    - url: "https://www.linkedin.com/posts/simonwardley_when-people-say-chinas-deepseek-bombshell-activity-7289335553626365953-jRYr"
+      type: "post"
+      description: "Discovered LinkedIn post"
+      metadata:
+        title: "When people say China's DeepSeek bombshell"
+        author: "Simon Wardley"
