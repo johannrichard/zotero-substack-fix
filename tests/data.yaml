@@ -75,14 +75,14 @@ test_cases:
       type: article
       description: Discovered LinkedIn article
       metadata:
-        title: "Over the past four years of this mandate, we have achieved a lot: agreeing on a new EU space programme like IRIS² was not a given, but we did it. Recognising space as an element of our collective security was a taboo, we broke it."
+        title: "EU Space: the Top 5 Priorities for 2024 and beyond"
         author: Thierry Breton
       fixture_path: tests/fixtures/linkedin_pulseeu_space_top_5_priorities_2024_beyond_thierry_breton_dmkhe.html
     - url: https://www.linkedin.com/pulse/business-development-issues-space-industry-satsearch-03mae
       type: article
       description: Discovered LinkedIn article
       metadata:
-        title: There are some really good business developers at work in the space industry today - selling dreams backed up by stats, heritage, and engineering excellence, while acting with integrity, enthusiasm, and understanding towards their prospective customers. But there are also plenty who
+        title: "Business development issues in the space industry""
         author: satsearch
       fixture_path: tests/fixtures/linkedin_pulsebusiness_development_issues_space_industry_satsearch_03mae.html
     - url: https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201
