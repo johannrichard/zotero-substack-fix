@@ -6,6 +6,7 @@
 import os
 import re
 import argparse
+import logging
 import requests
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
@@ -21,6 +22,34 @@ import asyncio
 import yaml
 from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
+
+# Setup logging (initial level, will be reconfigured based on debug flag)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)-8s] %(message)s",
+    datefmt="%H:%M:%S",
+)
+logger = logging.getLogger(__name__)
+
+
+def setup_logging(debug: bool = False) -> None:
+    """Configure logging level based on debug flag."""
+    log_level = logging.DEBUG if debug else logging.INFO
+    if debug:
+        log_format = "%(asctime)s [%(levelname)-8s] %(name)s:%(lineno)d | %(message)s"
+        date_format = "%H:%M:%S"
+    else:
+        log_format = "%(asctime)s [%(levelname)-8s] %(message)s"
+        date_format = "%H:%M:%S"
+
+    formatter = logging.Formatter(log_format, datefmt=date_format)
+    for handler in logging.root.handlers:
+        handler.setFormatter(formatter)
+
+    logger.setLevel(log_level)
+    # Also update the root logger
+    logging.getLogger().setLevel(log_level)
+
 
 # Constants
 TITLE_FALLBACK_WORD_LIMIT = 20  # APA citation style: first 20 words for posts/comments
@@ -98,7 +127,7 @@ def clean_url(url: str) -> str:
         return cleaned_url
 
     except Exception as e:
-        print(f"Warning: Could not clean URL '{url}': {str(e)}")
+        logger.warning(f"Warning: Could not clean URL '{url}': {str(e)}")
         return url
 
 
@@ -137,8 +166,8 @@ class ZoteroConfig:
 
 def get_zotero_client(config: ZoteroConfig) -> zotero.Zotero:
     """Create and return a Pyzotero client instance."""
-    print(f"Connecting to Zotero API with key: {mask_key(config.api_key)}")
-    print(f"Library type: {config.library_type}, Library ID: {config.library_id}")
+    logger.info(f"Connecting to Zotero API with key: {mask_key(config.api_key)}")
+    logger.info(f"Library type: {config.library_type}, Library ID: {config.library_id}")
 
     return zotero.Zotero(config.library_id, config.library_type, config.api_key)
 
@@ -161,7 +190,7 @@ def download_page(url: str) -> str:
         response.raise_for_status()
         return response.text
     except requests.exceptions.RequestException as e:
-        print(f"Failed to download {url}: {str(e)}")
+        logger.warning(f"Failed to download {url}: {str(e)}")
         return ""
 
 
@@ -179,6 +208,7 @@ def is_substack_note_url(url: str) -> bool:
         r"substack\.com/@[\w-]+/note/",
         r"substack\.com/notes/",
         r"substack\.com/@[\w-]+/p/comments/",
+        r"substack\.com/profile/\d+-[\w-]+/note/",
     ]
     return any(re.search(pattern, url, re.IGNORECASE) for pattern in note_patterns)
 
@@ -304,14 +334,19 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                     metadata["title"] += " ..."
 
             # 3. Date & Publisher
-            metadata["date"] = target_item.get("datePublished", "")
+            metadata["date"] = (
+                target_item.get("datePublished")
+                or target_item.get("dateCreated")
+                or target_item.get("dateModified")
+                or ""
+            )
             publisher = target_item.get("publisher", {})
             metadata["publisher"] = (
                 publisher.get("name", "") if isinstance(publisher, dict) else ""
             )
 
     except Exception as e:
-        print(f"Extraction Error: {e}")
+        logger.warning(f"Extraction Error: {e}")
 
     return metadata
 
@@ -323,8 +358,12 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     # Create a copy of the item data
     updated_data = dict(item["data"])
 
-    # Update item type (use forumPost for comments/notes)
-    if metadata.get("type") in ["Comment", "DiscussionForumPosting"]:
+    # Update item type (use forumPost for comments/notes/social media posts)
+    if metadata.get("type") in [
+        "Comment",
+        "DiscussionForumPosting",
+        "SocialMediaPosting",
+    ]:
         updated_data["itemType"] = "forumPost"
     else:
         updated_data["itemType"] = "blogPost"
@@ -340,7 +379,7 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
             # Parse metadata date
             meta_date = date_parser.parse(metadata["date"])
             meta_date_str = meta_date.strftime("%Y-%m-%d")
-            print(f"Parsed metadata date: {metadata['date']} → {meta_date_str}")
+            logger.debug(f"Parsed metadata date: {metadata['date']} → {meta_date_str}")
 
             # Parse current date if it exists
             current_date_str = updated_data.get("date", "").strip()
@@ -348,32 +387,32 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
                 try:
                     current_date = date_parser.parse(current_date_str)
                     current_date_str = current_date.strftime("%Y-%m-%d")
-                    print(
+                    logger.debug(
                         f"Parsed current date: {updated_data['date']} → {current_date_str}"
                     )
                 except Exception as e:
-                    print(
+                    logger.warning(
                         f"Warning: Could not parse existing date '{current_date_str}': {str(e)}"
                     )
                     current_date_str = ""
 
             # Update if no date exists or dates are different
             if not current_date_str or current_date_str != meta_date_str:
-                print(
+                logger.debug(
                     f"Date will be updated: {current_date_str or 'Not set'} → {meta_date_str}"
                 )
                 updated_data["date"] = meta_date_str
             else:
-                print(f"Dates match, no update needed: {current_date_str}")
+                logger.debug(f"Dates match, no update needed: {current_date_str}")
 
         except Exception as e:
-            print(
+            logger.warning(
                 f"Warning: Could not parse metadata date '{metadata['date']}': {str(e)}"
             )
             # If parsing fails, use the original date string only if no date exists
             if not updated_data.get("date"):
                 updated_data["date"] = metadata["date"]
-                print(f"Using original metadata date string: {metadata['date']}")
+                logger.debug(f"Using original metadata date string: {metadata['date']}")
 
     # Update creators if author is available and no creators exist
     if metadata["author"] and (
@@ -412,11 +451,18 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     """
     updated_data = dict(item["data"])
 
-    if metadata.get("type") in ["Comment", "DiscussionForumPosting"]:
+    if metadata.get("type") in [
+        "Comment",
+        "DiscussionForumPosting",
+        "SocialMediaPosting",
+    ]:
         updated_data["itemType"] = "forumPost"
     else:
         updated_data["itemType"] = "blogPost"
     updated_data["websiteType"] = "LinkedIn"
+
+    if metadata["title"]:
+        updated_data["title"] = metadata["title"]
 
     if metadata["publisher"]:
         updated_data["blogTitle"] = metadata["publisher"]
@@ -425,37 +471,37 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
         try:
             meta_date = date_parser.parse(metadata["date"])
             meta_date_str = meta_date.strftime("%Y-%m-%d")
-            print(f"Parsed metadata date: {metadata['date']} → {meta_date_str}")
+            logger.debug(f"Parsed metadata date: {metadata['date']} → {meta_date_str}")
 
             current_date_str = updated_data.get("date", "").strip()
             if current_date_str:
                 try:
                     current_date = date_parser.parse(current_date_str)
                     current_date_str = current_date.strftime("%Y-%m-%d")
-                    print(
+                    logger.debug(
                         f"Parsed current date: {updated_data['date']} → {current_date_str}"
                     )
                 except Exception as e:
-                    print(
+                    logger.warning(
                         f"Warning: Could not parse existing date '{current_date_str}': {str(e)}"
                     )
                     current_date_str = ""
 
             if not current_date_str or current_date_str != meta_date_str:
-                print(
+                logger.debug(
                     f"Date will be updated: {current_date_str or 'Not set'} → {meta_date_str}"
                 )
                 updated_data["date"] = meta_date_str
             else:
-                print(f"Dates match, no update needed: {current_date_str}")
+                logger.debug(f"Dates match, no update needed: {current_date_str}")
 
         except Exception as e:
-            print(
+            logger.warning(
                 f"Warning: Could not parse metadata date '{metadata['date']}': {str(e)}"
             )
             if not updated_data.get("date"):
                 updated_data["date"] = metadata["date"]
-                print(f"Using original metadata date string: {metadata['date']}")
+                logger.debug(f"Using original metadata date string: {metadata['date']}")
 
     if metadata["author"] and (
         not updated_data.get("creators") or len(updated_data["creators"]) == 0
@@ -482,7 +528,12 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     return updated_data
 
 
-def process_item(item: Dict) -> Optional[Dict]:
+def process_item(
+    item: Dict,
+    exclude_substack: bool = False,
+    exclude_linkedin: bool = False,
+    force: bool = False,
+) -> Optional[Dict]:
     """
     Process a single Zotero item, cleaning URL and checking for Substack/LinkedIn metadata
 
@@ -497,7 +548,7 @@ def process_item(item: Dict) -> Optional[Dict]:
         return None
 
     title = item["data"].get("title", "")
-    print(f"\nProcessing {title[:50]}... ({url})")
+    logger.debug(f"\nProcessing {title[:50]}... ({url})")
 
     # Create a copy of the item data for potential updates
     updated_data = dict(item["data"])
@@ -509,28 +560,39 @@ def process_item(item: Dict) -> Optional[Dict]:
     if cleaned_url != url:
         updated_data["url"] = cleaned_url
         needs_update = True
-        print(f"Cleaned URL: {url} → {cleaned_url}")
+        logger.debug(f"Cleaned URL: {url} → {cleaned_url}")
 
     # Download and check for Substack/LinkedIn only if we haven't already categorized it
-    if not (
+    if force or not (
         any(tag["tag"] == "zotero:processed" for tag in item["data"].get("tags", []))
     ):
+        is_linkedin = "linkedin.com" in url.lower()
+
+        if exclude_linkedin and is_linkedin:
+            logger.debug(f"- Skipping LinkedIn post (excluded): {title[:50]}...")
+            return updated_data if needs_update else None
+
+        if exclude_substack and not exclude_linkedin and not is_linkedin:
+            logger.debug(
+                f"- Skipping non-LinkedIn item (Substack excluded): {title[:50]}..."
+            )
+            return updated_data if needs_update else None
+
         html = download_page(cleaned_url)
-        is_linkedin = "linkedin.com" in cleaned_url.lower()
+
         is_substack = html and (
-            check_if_substack(html, cleaned_url) or is_substack_note_url(cleaned_url)
+            check_if_substack(html, url) or is_substack_note_url(url)
         )
+        metadata = extract_metadata(html, url) if html else {}
 
         if html and (is_substack or is_linkedin):
             global stats
             if is_substack:
-                print(f"✓ Substack detected for: {title[:50]}...")
+                logger.info(f"✓ Substack detected for: {title[:50]}...")
                 stats["substackFound"] += 1
             else:
-                print(f"✓ LinkedIn detected for: {title[:50]}...")
+                logger.info(f"✓ LinkedIn detected for: {title[:50]}...")
                 stats["linkedinFound"] += 1
-
-            metadata = extract_metadata(html, url)
             if is_substack:
                 updated_data = prepare_substack_item_update(item, metadata)
             else:
@@ -539,24 +601,24 @@ def process_item(item: Dict) -> Optional[Dict]:
             updated_data["url"] = cleaned_url
             needs_update = True
 
-            print("\nMetadata updates:")
-            print("----------------")
+            logger.info("Metadata updates:")
+            logger.info("----------------")
 
             # Type
             old_type = item["data"].get("itemType", "Not set")
             new_type = updated_data.get("itemType", "Not set")
             if old_type != new_type:
-                print(f"Type: {old_type} → {new_type}")
+                logger.info(f"Type: {old_type} → {new_type}")
 
             # Title
             old_title = item["data"].get("title", "Not set")
             new_title = updated_data.get("title", "Not set")
             if old_title != new_title:
-                print(f"Title: {old_title[:60]}... → {new_title[:60]}...")
+                logger.info(f"Title: {old_title[:60]}... → {new_title[:60]}...")
 
             # Date
             if metadata["date"]:
-                print(
+                logger.info(
                     f"Date: {item['data'].get('date', 'Not set')} → {updated_data.get('date', 'Not set')}"
                 )
 
@@ -571,26 +633,26 @@ def process_item(item: Dict) -> Optional[Dict]:
                     for c in updated_data.get("creators", [])
                 )
                 if old_authors != new_authors:
-                    print(f"Author: {old_authors or 'Not set'} → {new_authors}")
+                    logger.info(f"Author: {old_authors or 'Not set'} → {new_authors}")
 
             # Website/Blog
             if metadata["publisher"]:
-                print(
+                logger.info(
                     f"Website/Blog: {item['data'].get('blogTitle', 'Not set')} → {updated_data.get('blogTitle', 'Not set')}"
                 )
 
-            print("----------------")
+            logger.info("----------------")
         else:
-            print(f"✗ Not a Substack or LinkedIn site: {title[:50]}...")
+            logger.debug(f"✗ Not a Substack or LinkedIn site: {title[:50]}...")
     else:
-        print(f"✓ Already processed: {title[:50]}...")
+        logger.warning(f"✓ Already processed: {title[:50]}...")
 
     if needs_update:
         # Add a tag to indicate processing
         if "tags" not in updated_data:
             updated_data["tags"] = []
         updated_data["tags"].append({"tag": "zotero:processed"})
-        print("✓ Tag added: zotero:processed")
+        logger.debug("✓ Tag added: zotero:processed")
 
     return updated_data if needs_update else None
 
@@ -614,13 +676,16 @@ def analyze_zotero_library(
     dry_run: bool = False,
     report_file: Optional[str] = None,
     confirm: bool = False,
+    exclude_substack: bool = False,
+    exclude_linkedin: bool = False,
+    force: bool = False,
 ) -> None:
     """Main function to analyze Zotero library via API"""
     # Create Pyzotero client
     zot = get_zotero_client(config)
 
     # Get all web items
-    print("Retrieving webpage and blogPost items from Zotero...")
+    logger.debug("Retrieving webpage and blogPost items from Zotero...")
     web_items = []
     updates = []  # New list to collect all updates (not just batch)
     batch_updates = []  # List for batch processing
@@ -652,10 +717,21 @@ def analyze_zotero_library(
         if len(items) < limit:
             break
 
+    # Then get blogPost items
+    while True:
+        items = zot.items(itemType="forumPost", start=start, limit=limit)
+        if not items:
+            break
+        web_items.extend(items)
+        start += len(items)
+        if len(items) < limit:
+            break
+
     # Filter for items with URLs
     web_items = [item for item in web_items if item["data"].get("url")]
 
     # Initialize counters
+    total = len(web_items)
     global stats
     stats.update(
         {
@@ -667,26 +743,29 @@ def analyze_zotero_library(
         }
     )
 
-    total = len(web_items)
-
-    print(f"Found {len(web_items)} web items to process.")
+    logger.info(f"Found {total} web items to process.")
 
     # Modify the confirmation message for dry run
     action_msg = "analyze" if dry_run else "process and update"
     if not confirm and not confirm_action(
-        f"{action_msg.capitalize()} {len(web_items)} items? "
+        f"{action_msg.capitalize()} {total} items? "
         f"{'(Dry run, no changes will be made)' if dry_run else '(This will update your Zotero database directly)'} (y/n): "
     ):
-        print("Operation cancelled by user.")
+        logger.warning("Operation cancelled by user.")
         return
 
     # Process items
     for item in web_items:
         updated_data = None
         try:
-            updated_data = process_item(item)
+            updated_data = process_item(
+                item,
+                exclude_substack=exclude_substack,
+                exclude_linkedin=exclude_linkedin,
+                force=force,
+            )
         except Exception as e:
-            print(f"Error processing item {item.get('key')}: {str(e)}")
+            logger.error(f"Error processing item {item.get('key')}: {str(e)}")
             stats["errors"] += 1
 
         if updated_data:
@@ -703,20 +782,21 @@ def analyze_zotero_library(
         if not dry_run:
             # Perform batch update every 50 items or at the end
             if len(batch_updates) >= 50 or item == web_items[-1]:
-                print(f"\nBatch updating {len(batch_updates)} items...")
+                logger.info(f"\nBatch updating {len(batch_updates)} items...")
                 try:
+                    logger.info(f"Batch update data: {batch_updates}")
                     zot.update_items(batch_updates)
-                    print(f"✓ Successfully updated {len(batch_updates)} items")
+                    logger.info(f"✓ Successfully updated {len(batch_updates)} items")
                     batch_updates = []
                 except Exception as e:
-                    print(f"Error during batch update: {str(e)}")
+                    logger.error(f"Error during batch update: {str(e)}")
                     stats["errors"] += len(batch_updates)
                     batch_updates = []
 
         # Update progress with URL cleaning stats
         stats["processed"] += 1
         if stats["processed"] % 5 == 0 or stats["processed"] == total:
-            print(
+            logger.debug(
                 f"Processed {stats['processed']}/{total} items. "
                 f"Cleaned {stats['urls_cleaned']} URLs. "
                 f"Found {stats['substackFound']} Substack posts. "
@@ -729,24 +809,34 @@ def analyze_zotero_library(
         generate_markdown_report(updates, report_file)
 
     # Update final statistics output
-    print("\nAnalysis complete!")
+    logger.info("\nAnalysis complete!")
     if dry_run:
-        print("DRY RUN - No changes were made to Zotero library")
-    print(f"Total items processed: {stats['processed']}")
-    print(f"URLs cleaned: {stats['urls_cleaned']}")
-    print(f"Substack posts identified: {stats['substackFound']}")
-    print(f"LinkedIn posts identified: {stats['linkedinFound']}")
+        logger.info("DRY RUN - No changes were made to Zotero library")
+    logger.info(f"Total items processed: {stats['processed']}")
+    logger.info(f"URLs cleaned: {stats['urls_cleaned']}")
+    logger.info(f"Substack posts identified: {stats['substackFound']}")
+    logger.info(f"LinkedIn posts identified: {stats['linkedinFound']}")
     if not dry_run:
-        print(f"Items updated in Zotero: {stats['updated']}")
-    print(f"Errors encountered: {stats['errors']}")
+        logger.info(f"Items updated in Zotero: {stats['updated']}")
+    logger.info(f"Errors encountered: {stats['errors']}")
+
+
+def _to_date_string(date_obj) -> str:
+    """Convert date object to ISO string or empty string."""
+    if date_obj is None or date_obj == "":
+        return ""
+    if hasattr(date_obj, "isoformat"):
+        return date_obj.isoformat()
+    return str(date_obj)
 
 
 def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
     """
     Offline-first Test Mode. Uses local fixtures if they exist.
+    Validates the full pipeline: detection → extraction → item preparation
     """
     if not os.path.exists(yaml_path):
-        print(f"Error: YAML test data not found at {yaml_path}")
+        logger.error(f"Error: YAML test data not found at {yaml_path}")
         return
 
     with open(yaml_path, "r", encoding="utf-8") as f:
@@ -757,7 +847,7 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
     ).get("linkedin", [])
 
     passed = 0
-    print(f"--- Running Tests (YAML: {yaml_path}) ---")
+    logger.info(f"--- Running Tests (YAML: {yaml_path}) ---")
 
     for case in cases:
         url = case["url"]
@@ -774,30 +864,108 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
             html = download_page(url)
             source = "[LIVE] "
 
-        extracted = extract_metadata(html, url)
+        # Full pipeline: detect site and extract metadata
+
+        is_substack = html and (
+            check_if_substack(html, url) or is_substack_note_url(url)
+        )
+        # Check if this is a LinkedIn URL
+        is_linkedin = "linkedin.com" in url.lower()
+        extracted = extract_metadata(html, url) if html else {}
+        # Create a minimal mock Zotero item for preparation testing
+        mock_item = {"data": {"creators": [], "tags": [], "url": url}}
+
+        # Prepare the item update based on detected site
+        updated_item = None
+        if is_substack and extracted:
+            updated_item = prepare_substack_item_update(mock_item, extracted)
+        elif is_linkedin and extracted:
+            updated_item = prepare_linkedin_item_update(mock_item, extracted)
 
         # Validation
         author_ok = extracted["author"] == expected["author"]
         title_ok = expected["title"].strip(" .") in extracted["title"]
+        expected_date = expected.get("date")
+        extracted_date = extracted.get("date", "")
+        expected_date_value = _to_date_string(expected_date)
+        extracted_date_value = _to_date_string(extracted_date)
+        expected_date_only = (
+            expected_date_value.split("T")[0].split(" ")[0]
+            if expected_date_value
+            else ""
+        )
+        extracted_date_only = (
+            extracted_date_value.split("T")[0].split(" ")[0]
+            if extracted_date_value
+            else ""
+        )
+        date_ok = (
+            True
+            if not expected_date_only
+            else extracted_date_only == expected_date_only
+        )
 
-        if author_ok and title_ok:
-            print(f"✅ {source} {url[:50]}...")
+        # Additional validation for item structure if prepared
+        item_type_ok = True
+        has_website_type = False
+        has_creators = False
+        if updated_item:
+            item_type_ok = updated_item.get("itemType") == expected.get("type")
+            has_website_type = updated_item.get("websiteType") in [
+                "Substack Newsletter",
+                "LinkedIn",
+            ]
+            has_creators = (
+                len(updated_item.get("creators", [])) > 0
+                if extracted["author"]
+                else True
+            )
+
+        if (
+            author_ok
+            and title_ok
+            and item_type_ok
+            and has_website_type
+            and has_creators
+            and date_ok
+        ):
+            logger.info(f"✅ {source} {url[:50]}...")
             passed += 1
         else:
-            print(f"❌ {source} {url}")
+            logger.info(f"❌ {source} {url}")
             # Show the JSON-LD type and what Zotero entry type would be created
             if extracted["type"]:
-                print(f"    Type: {extracted['type']} → Zotero: blogPost")
+                expected_type = expected.get("type", "N/A")
+                actual_type = (
+                    updated_item.get("itemType", "N/A") if updated_item else "N/A"
+                )
+                logger.info(
+                    f"    Type Mismatch: Extracted JSON-LD: {extracted['type']} | Expected itemType: {expected_type} | Got itemType: {actual_type}"
+                )
             if not author_ok:
-                print(
+                logger.info(
                     f"    Expected Author: {expected['author']} | Got: {extracted['author']}"
                 )
             if not title_ok:
-                print(
+                logger.info(
                     f"    Expected Title: {expected['title']} | Got: {extracted['title']}"
                 )
+            if not date_ok:
+                logger.info(
+                    f"    Expected Date: {expected_date_only} | Got: {extracted_date_only}"
+                )
+            if not item_type_ok and updated_item:
+                logger.info(
+                    f"    Item Type Issue: Expected {expected.get('type', 'N/A')}, got {updated_item.get('itemType', 'Missing')}"
+                )
+            if not has_website_type and updated_item:
+                logger.info(
+                    f"    Website Type Issue: {updated_item.get('websiteType', 'Missing')}"
+                )
+            if not has_creators and extracted["author"] and updated_item:
+                logger.info(f"    Authors Issue: {updated_item.get('creators', [])}")
 
-    print(f"\nResult: {passed}/{len(cases)} tests passed.")
+    logger.info(f"\nResult: {passed}/{len(cases)} tests passed.")
 
 
 def parse_args() -> argparse.Namespace:
@@ -832,11 +1000,33 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "-e", "--env", type=str, help="Path to custom .env file", default=".env"
     )
+    exclude_group = parser.add_mutually_exclusive_group()
+    exclude_group.add_argument(
+        "--no-substack",
+        action="store_true",
+        help="Exclude Substack posts from processing",
+    )
+    exclude_group.add_argument(
+        "--no-linkedin",
+        action="store_true",
+        help="Exclude LinkedIn posts from processing",
+    )
     parser.add_argument(
         "-y",
         "--confirm",
         action="store_true",
         help="Auto-confirm prompts for non-interactive use",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug logging for detailed output",
+    )
+    parser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Process items even if already tagged as zotero:processed",
     )
     return parser.parse_args()
 
@@ -923,7 +1113,7 @@ def generate_markdown_report(
 
     # Write to file
     Path(filename).write_text("\n".join(md_content))
-    print(f"\nReport generated: {filename}")
+    logger.info(f"\nReport generated: {filename}")
 
 
 async def run_streaming_mode(config: ZoteroConfig):
@@ -954,8 +1144,9 @@ def load_environment(env_file: str = ".env") -> None:
 
 if __name__ == "__main__":
     try:
-        print("Starting Substack Analyzer...")
         args = parse_args()
+        setup_logging(debug=args.debug)
+        logger.info(f"Starting Substack Analyzer...")
 
         if args.test_yaml:
             run_yaml_tests(args.test_yaml)
@@ -964,18 +1155,25 @@ if __name__ == "__main__":
             config = ZoteroConfig.from_env(args.env)
 
             if args.stream:
-                print("Running in streaming mode...")
+                logger.info("Running in streaming mode...")
                 asyncio.run(run_streaming_mode(config))
             else:
-                print("Running in batch mode...")
+                logger.info("Running in batch mode...")
                 if args.confirm:
-                    print("Auto-confirm enabled: prompts will be bypassed.")
+                    logger.debug("Auto-confirm enabled: prompts will be bypassed.")
+                if args.force:
+                    logger.warning(
+                        "Force processing enabled: all items will be re-processed."
+                    )
                 analyze_zotero_library(
                     config,
                     dry_run=args.dry_run,
                     report_file=args.report,
                     confirm=args.confirm,
+                    exclude_substack=args.no_substack,
+                    exclude_linkedin=args.no_linkedin,
+                    force=args.force,
                 )
     except Exception as e:
-        print(f"Error running analysis: {str(e)}")
+        logger.error(f"Error running analysis: {str(e)}")
         exit(1)
