@@ -82,7 +82,7 @@ test_cases:
       type: article
       description: Discovered LinkedIn article
       metadata:
-        title: "Business development issues in the space industry""
+        title: "Business development issues in the space industry"
         author: satsearch
       fixture_path: tests/fixtures/linkedin_pulsebusiness_development_issues_space_industry_satsearch_03mae.html
     - url: https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201
