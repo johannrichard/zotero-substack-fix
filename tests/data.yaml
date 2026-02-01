@@ -92,7 +92,7 @@ test_cases:
     metadata:
       title: Is the DIANA evaluation same as last time? Where all the NATO countries
         have to agree on the winners?
-      author: Sebastian Riehn
+      author: Samuel Riehn, MBA
     fixture_path: tests/fixtures/linkedin_feedupdateurnliactivity7341487429331140608.html
   - url: https://www.linkedin.com/posts/dave-snowden-2a93b_sitting-here-in-sheffield-having-presented-activity-7345793090101649408-PHeo
     type: post
