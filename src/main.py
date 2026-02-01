@@ -27,7 +27,6 @@ TITLE_FALLBACK_WORD_LIMIT = 20  # APA citation style: first 20 words for posts/c
 
 # Statistics for reporting
 stats = {
-    "total": 0,
     "processed": 0,
     "substackFound": 0,
     "linkedinFound": 0,
@@ -406,7 +405,7 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
 def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     """
     Prepare an updated Zotero item with extracted LinkedIn metadata
-    
+
     Args:
         item: Original Zotero item
         metadata: Extracted metadata dictionary from LinkedIn page
@@ -554,13 +553,13 @@ def process_item(item: Dict) -> Optional[Dict]:
             new_title = updated_data.get("title", "Not set")
             if old_title != new_title:
                 print(f"Title: {old_title[:60]}... → {new_title[:60]}...")
-            
+
             # Date
             if metadata["date"]:
                 print(
                     f"Date: {item['data'].get('date', 'Not set')} → {updated_data.get('date', 'Not set')}"
                 )
-            
+
             # Author
             if metadata["author"]:
                 old_authors = ", ".join(
@@ -573,13 +572,13 @@ def process_item(item: Dict) -> Optional[Dict]:
                 )
                 if old_authors != new_authors:
                     print(f"Author: {old_authors or 'Not set'} → {new_authors}")
-            
+
             # Website/Blog
             if metadata["publisher"]:
                 print(
                     f"Website/Blog: {item['data'].get('blogTitle', 'Not set')} → {updated_data.get('blogTitle', 'Not set')}"
                 )
-            
+
             print("----------------")
         else:
             print(f"✗ Not a Substack or LinkedIn site: {title[:50]}...")
@@ -611,7 +610,10 @@ def confirm_action(question: str) -> bool:
 
 
 def analyze_zotero_library(
-    config: ZoteroConfig, dry_run: bool = False, report_file: Optional[str] = None
+    config: ZoteroConfig,
+    dry_run: bool = False,
+    report_file: Optional[str] = None,
+    confirm: bool = False,
 ) -> None:
     """Main function to analyze Zotero library via API"""
     # Create Pyzotero client
@@ -665,11 +667,13 @@ def analyze_zotero_library(
         }
     )
 
+    total = len(web_items)
+
     print(f"Found {len(web_items)} web items to process.")
 
     # Modify the confirmation message for dry run
     action_msg = "analyze" if dry_run else "process and update"
-    if not confirm_action(
+    if not confirm and not confirm_action(
         f"{action_msg.capitalize()} {len(web_items)} items? "
         f"{'(Dry run, no changes will be made)' if dry_run else '(This will update your Zotero database directly)'} (y/n): "
     ):
@@ -678,43 +682,46 @@ def analyze_zotero_library(
 
     # Process items
     for item in web_items:
+        updated_data = None
         try:
-            if updated_data := process_item(item):
-                updates.append(updated_data)  # Keep all updates for report
-
-                # Track URL cleaning separately
-                if updated_data.get("url") != item["data"].get("url"):
-                    stats["urls_cleaned"] += 1
-
-                if not dry_run:
-                    batch_updates.append(updated_data)
-                    stats["updated"] += 1
-
-                    # Perform batch update every 50 items or at the end
-                    if len(batch_updates) >= 50 or item == web_items[-1]:
-                        print(f"\nBatch updating {len(batch_updates)} items...")
-                        try:
-                            zot.update_items(batch_updates)
-                            print(f"✓ Successfully updated {len(batch_updates)} items")
-                            batch_updates = []
-                        except Exception as e:
-                            print(f"Error during batch update: {str(e)}")
-                            stats["errors"] += len(batch_updates)
-                            batch_updates = []
-
+            updated_data = process_item(item)
         except Exception as e:
             print(f"Error processing item {item.get('key')}: {str(e)}")
             stats["errors"] += 1
 
+        if updated_data:
+            updates.append(updated_data)  # Keep all updates for report
+
+            # Track URL cleaning separately
+            if updated_data.get("url") != item["data"].get("url"):
+                stats["urls_cleaned"] += 1
+
+            if not dry_run:
+                batch_updates.append(updated_data)
+                stats["updated"] += 1
+
+        if not dry_run:
+            # Perform batch update every 50 items or at the end
+            if len(batch_updates) >= 50 or item == web_items[-1]:
+                print(f"\nBatch updating {len(batch_updates)} items...")
+                try:
+                    zot.update_items(batch_updates)
+                    print(f"✓ Successfully updated {len(batch_updates)} items")
+                    batch_updates = []
+                except Exception as e:
+                    print(f"Error during batch update: {str(e)}")
+                    stats["errors"] += len(batch_updates)
+                    batch_updates = []
+
         # Update progress with URL cleaning stats
         stats["processed"] += 1
-        if stats["processed"] % 5 == 0 or stats["processed"] == stats["total"]:
+        if stats["processed"] % 5 == 0 or stats["processed"] == total:
             print(
-                f"Processed {stats['processed']}/{stats['total']} items. "
+                f"Processed {stats['processed']}/{total} items. "
                 f"Cleaned {stats['urls_cleaned']} URLs. "
                 f"Found {stats['substackFound']} Substack posts. "
                 f"Found {stats['linkedinFound']} LinkedIn posts. "
-                f"Updated {stats['updated']} items."
+                f"Updating {stats['updated']} items."
             )
 
     # Generate report if there are any updates
@@ -824,6 +831,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "-e", "--env", type=str, help="Path to custom .env file", default=".env"
+    )
+    parser.add_argument(
+        "-y",
+        "--confirm",
+        action="store_true",
+        help="Auto-confirm prompts for non-interactive use",
     )
     return parser.parse_args()
 
@@ -955,8 +968,13 @@ if __name__ == "__main__":
                 asyncio.run(run_streaming_mode(config))
             else:
                 print("Running in batch mode...")
+                if args.confirm:
+                    print("Auto-confirm enabled: prompts will be bypassed.")
                 analyze_zotero_library(
-                    config, dry_run=args.dry_run, report_file=args.report
+                    config,
+                    dry_run=args.dry_run,
+                    report_file=args.report,
+                    confirm=args.confirm,
                 )
     except Exception as e:
         print(f"Error running analysis: {str(e)}")
