@@ -72,3 +72,6 @@ output/
 .vscode/settings.json
 
 .wiki/
+
+# Don't commit fixtures
+tests/fixtures
