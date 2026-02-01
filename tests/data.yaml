@@ -1,135 +1,130 @@
 test_cases:
   substack:
-    - url: https://substack.com/@contraptions/note/c-206007805
-      type: note
-      description: Discovered note
-      metadata:
-        title:
-          I hold a modified version of this. The main requirement to be truth-oriented
-          is not “naming truths” but remaining
-        author: Venkatesh Rao
-      fixture_path: tests/fixtures/substack_contraptionsnotec_206007805.html
-    - url: https://substack.com/@contraptions/note/c-137298048
-      type: note
-      description: Discovered note
-      metadata:
-        title:
-          Bootstrapping is an interesting metaphor since it originated in an impossibility
-          joke (Baron Munchsusen pulling himself out of a swamp
-        author: Venkatesh Rao
-      fixture_path: tests/fixtures/substack_contraptionsnotec_137298048.html
-    - url: https://substack.com/@contraptions/note/c-138536158
-      type: note
-      description: Discovered note
-      metadata:
-        title:
-          Haven’t thought about my piece cited here (the GUTs thing from 2018)
-          in a long time. I think what Ben
-        author: Venkatesh Rao
-      fixture_path: tests/fixtures/substack_contraptionsnotec_138536158.html
-    - url: https://substack.com/@contraptions/note/c-156977833
-      type: note
-      description: Discovered note
-      metadata:
-        title: AI discourse is missing a meso-level discourse level.
-        author: Venkatesh Rao
-        should_not_add_ellipsis: true
-      fixture_path: tests/fixtures/substack_contraptionsnotec_156977833.html
-    - url: https://substack.com/@contraptions/note/c-181206471
-      type: note
-      description: Discovered note
-      metadata:
-        title:
-          Jeez. Literally everyone with any sort of attention capital is ending
-          up here. Each time I see a big name
-        author: Venkatesh Rao
-      fixture_path: tests/fixtures/substack_contraptionsnotec_181206471.html
-    - url: https://substack.com/@johannrichard/note/c-155804782
-      type: note
-      description: Discovered note
-      metadata:
-        title: Reminds me of Venkatesh‘s „LLMs as Index Funds“ and „Prompting is Managing“
-        author: Johann
-        should_not_add_ellipsis: true
-      fixture_path: tests/fixtures/substack_johannrichardnotec_155804782.html
-    - url: https://substack.com/profile/1135584-johann/note/c-157883674
-      type: note
-      description: Discovered note
-      metadata:
-        title:
-          That also seems to hint at the existence of an optimal “Finished:Unfinished”
-          memory ratio (or tension) and range (ETTO frontier)
-        author: Johann
-        should_not_add_ellipsis: true
-      fixture_path: tests/fixtures/substack_profile1135584_johannnotec_157883674.html
-    - url: https://substack.com/profile/1135584-johann/note/c-131146264
-      type: note
-      description: Discovered Substack note
-      metadata:
-        title: Funnily enough, I came around a Dave Snowden post on LinkedIn
-        author: Johann
-        should_not_add_ellipsis: true
-      fixture_path: tests/fixtures/substack_profile1135584_johannnotec_131146264.html
+  - url: https://substack.com/@contraptions/note/c-206007805
+    type: note
+    description: Discovered note
+    metadata:
+      title: I hold a modified version of this. The main requirement to be truth-oriented
+        is not “naming truths” but remaining
+      author: Venkatesh Rao
+    fixture_path: tests/fixtures/substack_contraptionsnotec_206007805.html
+  - url: https://substack.com/@contraptions/note/c-137298048
+    type: note
+    description: Discovered note
+    metadata:
+      title: Bootstrapping is an interesting metaphor since it originated in an impossibility
+        joke (Baron Munchsusen pulling himself out of a swamp
+      author: Venkatesh Rao
+    fixture_path: tests/fixtures/substack_contraptionsnotec_137298048.html
+  - url: https://substack.com/@contraptions/note/c-138536158
+    type: note
+    description: Discovered note
+    metadata:
+      title: Haven’t thought about my piece cited here (the GUTs thing from 2018,
+        https://contraptions.venkateshrao.com/p/guts-the-grand-unified-theory-of)
+        in a long time. I think what ...
+      author: Venkatesh Rao
+    fixture_path: tests/fixtures/substack_contraptionsnotec_138536158.html
+  - url: https://substack.com/@contraptions/note/c-156977833
+    type: note
+    description: Discovered note
+    metadata:
+      title: AI discourse is missing a meso-level discourse level.
+      author: Venkatesh Rao
+      should_not_add_ellipsis: true
+    fixture_path: tests/fixtures/substack_contraptionsnotec_156977833.html
+  - url: https://substack.com/@contraptions/note/c-181206471
+    type: note
+    description: Discovered note
+    metadata:
+      title: Jeez. Literally everyone with any sort of attention capital is ending
+        up here. Each time I see a big name
+      author: Venkatesh Rao
+    fixture_path: tests/fixtures/substack_contraptionsnotec_181206471.html
+  - url: https://substack.com/@johannrichard/note/c-155804782
+    type: note
+    description: Discovered note
+    metadata:
+      title: Reminds me of Venkatesh‘s „LLMs as Index Funds“ and „Prompting is Managing“
+      author: Johann
+      should_not_add_ellipsis: true
+    fixture_path: tests/fixtures/substack_johannrichardnotec_155804782.html
+  - url: https://substack.com/profile/1135584-johann/note/c-157883674
+    type: note
+    description: Discovered note
+    metadata:
+      title: That also seems to hint at the existence of an optimal “Finished:Unfinished”
+        memory ratio (or tension) and range (ETTO frontier)
+      author: Johann
+      should_not_add_ellipsis: true
+    fixture_path: tests/fixtures/substack_profile1135584_johannnotec_157883674.html
+  - url: https://substack.com/profile/1135584-johann/note/c-131146264
+    type: note
+    description: Discovered Substack note
+    metadata:
+      title: Funnily enough, I came around a Dave Snowden post on LinkedIn
+      author: Johann
+      should_not_add_ellipsis: true
+    fixture_path: tests/fixtures/substack_profile1135584_johannnotec_131146264.html
   linkedin:
-    - url: https://www.linkedin.com/pulse/eu-space-top-5-priorities-2024-beyond-thierry-breton-dmkhe
-      type: article
-      description: Discovered LinkedIn article
-      metadata:
-        title: "EU Space: the Top 5 Priorities for 2024 and beyond"
-        author: Thierry Breton
-      fixture_path: tests/fixtures/linkedin_pulseeu_space_top_5_priorities_2024_beyond_thierry_breton_dmkhe.html
-    - url: https://www.linkedin.com/pulse/business-development-issues-space-industry-satsearch-03mae
-      type: article
-      description: Discovered LinkedIn article
-      metadata:
-        title: "Business development issues in the space industry"
-        author: satsearch
-      fixture_path: tests/fixtures/linkedin_pulsebusiness_development_issues_space_industry_satsearch_03mae.html
-    - url: https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201
-      type: post
-      description: Discovered LinkedIn post
-      metadata:
-        title: "Cynical on Sinek: Why Simon Sinek’s Works Fall Short for Leaders"
-        author: Chaveso "Chevy" Cook, Ph.D.
-      fixture_path: tests/fixtures/linkedin_postschaveso_chevy_cook_cynical_on_sinek_why_simon_sineks_works_activity_7285284551541600257_o201.html
-    - url: https://www.linkedin.com/posts/scotthutcheson_fostering-ownership-insights-from-self-determination-activity-7204889856429146113-66Eq
-      type: post
-      description: Discovered LinkedIn post
-      metadata:
-        title: "Fostering Ownership: Insights from Self-Determination Theory"
-        author: Scott Hutcheson
-      fixture_path: tests/fixtures/linkedin_postsscotthutcheson_fostering_ownership_insights_from_self_determination_activity_720488985642914611.html
-    - url: https://www.linkedin.com/feed/update/urn:li:activity:7341487429331140608?commentUrn=urn%3Ali%3Acomment%3A%28activity%3A7341487429331140608%2C7341566945747443712%29&dashCommentUrn=urn%3Ali%3Afsd_comment%3A%287341566945747443712%2Curn%3Ali%3Aactivity%3A7341487429331140608%29
-      type: comment
-      description: Discovered LinkedIn comment
-      metadata:
-        title:
-          Is the DIANA evaluation same as last time? Where all the NATO countries
-          have to agree on the winners?
-        author: Samuel Riehn, MBA
-      fixture_path: tests/fixtures/linkedin_feedupdateurnliactivity7341487429331140608.html
-    - url: https://www.linkedin.com/posts/dave-snowden-2a93b_sitting-here-in-sheffield-having-presented-activity-7345793090101649408-PHeo
-      type: post
-      description: Discovered LinkedIn post
-      metadata:
-        title:
-          Sitting here in Sheffield, having presented material on citizen engagement
-          and also reflecting on some of the other presentations.
-        author: Dave Snowden
-      fixture_path: tests/fixtures/linkedin_postsdave_snowden_2a93b_sitting_here_in_sheffield_having_presented_activity_7345793090101649408_pheo.html
-    - url: https://www.linkedin.com/posts/simonwardley_why-open-source-ai-matters-activity-7290388242078593024-nKL9
-      type: post
-      description: Discovered LinkedIn post
-      metadata:
-        title:
-          Back in 2023, I took a position (based upon a discussion at the beginning
-          of the year at the State ...
-        author: Simon Wardley
-      fixture_path: tests/fixtures/linkedin_postssimonwardley_why_open_source_ai_matters_activity_7290388242078593024_nkl9.html
-    - url: https://www.linkedin.com/posts/simonwardley_when-people-say-chinas-deepseek-bombshell-activity-7289335553626365953-jRYr
-      type: post
-      description: Discovered LinkedIn post
-      metadata:
-        title: When people say China's DeepSeek bombshell
-        author: Simon Wardley
-      fixture_path: tests/fixtures/linkedin_postssimonwardley_when_people_say_chinas_deepseek_bombshell_activity_7289335553626365953_jryr.html
+  - url: https://www.linkedin.com/pulse/eu-space-top-5-priorities-2024-beyond-thierry-breton-dmkhe
+    type: article
+    description: Discovered LinkedIn article
+    metadata:
+      title: 'EU Space: the Top 5 Priorities for 2024 and beyond'
+      author: Thierry Breton
+    fixture_path: tests/fixtures/linkedin_pulseeu_space_top_5_priorities_2024_beyond_thierry_breton_dmkhe.html
+  - url: https://www.linkedin.com/pulse/business-development-issues-space-industry-satsearch-03mae
+    type: article
+    description: Discovered LinkedIn article
+    metadata:
+      title: Business development issues in the space industry
+      author: satsearch
+    fixture_path: tests/fixtures/linkedin_pulsebusiness_development_issues_space_industry_satsearch_03mae.html
+  - url: https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201
+    type: post
+    description: Discovered LinkedIn post
+    metadata:
+      title: 'Here’s a why to start with… why do so many people listen to Simon Sinek??
+        Another: Why do we value ...'
+      author: Chaveso "Chevy" Cook, Ph.D.
+    fixture_path: tests/fixtures/linkedin_postschaveso_chevy_cook_cynical_on_sinek_why_simon_sineks_works_activity_7285284551541600257_o201.html
+  - url: https://www.linkedin.com/posts/scotthutcheson_fostering-ownership-insights-from-self-determination-activity-7204889856429146113-66Eq
+    type: post
+    description: Discovered LinkedIn post
+    metadata:
+      title: 'Fostering Ownership: Insights from Self-Determination Theory'
+      author: Scott Hutcheson
+    fixture_path: tests/fixtures/linkedin_postsscotthutcheson_fostering_ownership_insights_from_self_determination_activity_720488985642914611.html
+  - url: https://www.linkedin.com/feed/update/urn:li:activity:7341487429331140608?commentUrn=urn%3Ali%3Acomment%3A%28activity%3A7341487429331140608%2C7341566945747443712%29&dashCommentUrn=urn%3Ali%3Afsd_comment%3A%287341566945747443712%2Curn%3Ali%3Aactivity%3A7341487429331140608%29
+    type: comment
+    description: Discovered LinkedIn comment
+    metadata:
+      title: Is the DIANA evaluation same as last time? Where all the NATO countries
+        have to agree on the winners?
+      author: Samuel Riehn, MBA
+    fixture_path: tests/fixtures/linkedin_feedupdateurnliactivity7341487429331140608.html
+  - url: https://www.linkedin.com/posts/dave-snowden-2a93b_sitting-here-in-sheffield-having-presented-activity-7345793090101649408-PHeo
+    type: post
+    description: Discovered LinkedIn post
+    metadata:
+      title: Sitting here in Sheffield, having presented material on citizen engagement
+        and also reflecting on some of the other presentations.
+      author: Dave Snowden
+    fixture_path: tests/fixtures/linkedin_postsdave_snowden_2a93b_sitting_here_in_sheffield_having_presented_activity_7345793090101649408_pheo.html
+  - url: https://www.linkedin.com/posts/simonwardley_why-open-source-ai-matters-activity-7290388242078593024-nKL9
+    type: post
+    description: Discovered LinkedIn post
+    metadata:
+      title: Back in 2023, I took a position (based upon a discussion at the beginning
+        of the year at the State ...
+      author: Simon Wardley
+    fixture_path: tests/fixtures/linkedin_postssimonwardley_why_open_source_ai_matters_activity_7290388242078593024_nkl9.html
+  - url: https://www.linkedin.com/posts/simonwardley_when-people-say-chinas-deepseek-bombshell-activity-7289335553626365953-jRYr
+    type: post
+    description: Discovered LinkedIn post
+    metadata:
+      title: When people say "China's DeepSeek Bombshell" - https://lnkd.in/eUnYsTvq
+        what they really mean is China's obvious and well signalled move towards ...
+      author: Simon Wardley
+    fixture_path: tests/fixtures/linkedin_postssimonwardley_when_people_say_chinas_deepseek_bombshell_activity_7289335553626365953_jryr.html

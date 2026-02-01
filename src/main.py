@@ -293,7 +293,7 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
             # 2. Title Logic (Headline vs. 20-word Text fallback)
             if target_item.get("@type") in ["NewsArticle", "BlogPosting", "Article"]:
                 metadata["title"] = target_item.get(
-                    "headline", target_item.get("name", "")
+                    "name", target_item.get("headline", "")
                 )
             else:
                 # Fallback for Posts/Comments (APA Style)
