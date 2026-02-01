@@ -1,4 +1,4 @@
-.PHONY: help install update clean run dry-run check format lint test
+.PHONY: help install update clean run dry-run check format lint test hydrate-fixtures
 
 # Python settings
 PYTHON := python3
@@ -39,9 +39,16 @@ stream:  ## Run the Zotero Substack analyzer in stream mode
 check:  ## Run all code quality checks
 	$(MAKE) format
 	$(MAKE) lint
+	$(MAKE) test
 
 format:  ## Format code using black
 	$(PIPENV) run black src || true
 
 lint:  ## Run linting using ruff
 	$(PIPENV) run ruff check src || true
+
+test:  ## Run offline tests with local fixtures
+	$(PIPENV) run python src/main.py --test-yaml
+
+hydrate-fixtures:  ## Download and update test fixtures
+	$(PIPENV) run python tests/hydrate_fixtures.py
