@@ -18,11 +18,19 @@ from pathlib import Path
 from pyzotero import zotero
 from dateutil import parser as date_parser
 import asyncio
+import yaml
 from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
 
 # Statistics for reporting
-stats = {"total": 0, "processed": 0, "substackFound": 0, "updated": 0, "errors": 0}
+stats = {
+    "total": 0,
+    "processed": 0,
+    "substackFound": 0,
+    "updated": 0,
+    "errors": 0,
+    "urls_cleaned": 0,
+}
 
 
 def clean_url(url: str) -> str:
@@ -101,6 +109,7 @@ def mask_key(key: str) -> str:
 @dataclass
 class ZoteroConfig:
     """Zotero API configuration"""
+
     api_key: str
     library_id: str
     library_type: str = "user"
@@ -110,33 +119,25 @@ class ZoteroConfig:
         """Load configuration from environment variables"""
         if env_file:
             load_dotenv(env_file)
-            
+
         api_key = os.getenv("ZOTERO_API_KEY")
         library_id = os.getenv("ZOTERO_LIBRARY_ID")
         library_type = os.getenv("ZOTERO_LIBRARY_TYPE", "user")
-        
+
         if not api_key:
             raise ValueError("ZOTERO_API_KEY is not set in environment")
         if not library_id:
             raise ValueError("ZOTERO_LIBRARY_ID is not set in environment")
-            
-        return cls(
-            api_key=api_key,
-            library_id=library_id,
-            library_type=library_type
-        )
+
+        return cls(api_key=api_key, library_id=library_id, library_type=library_type)
 
 
 def get_zotero_client(config: ZoteroConfig) -> zotero.Zotero:
     """Create and return a Pyzotero client instance."""
     print(f"Connecting to Zotero API with key: {mask_key(config.api_key)}")
     print(f"Library type: {config.library_type}, Library ID: {config.library_id}")
-    
-    return zotero.Zotero(
-        config.library_id,
-        config.library_type,
-        config.api_key
-    )
+
+    return zotero.Zotero(config.library_id, config.library_type, config.api_key)
 
 
 def download_page(url: str) -> str:
@@ -221,49 +222,70 @@ def check_if_substack(html: str, url: str) -> bool:
 
 def extract_metadata(html: str, url: str) -> Dict[str, str]:
     """
-    Extract metadata from HTML content using JSON-LD
-
-    Args:
-        html: HTML content
-        url: Original URL
-
-    Returns:
-        Dictionary of extracted metadata
+    Extracts metadata from JSON-LD. Handles Articles, Posts, and Comments.
+    Maintains full author names as found in the source.
     """
     metadata = {"title": "", "author": "", "date": "", "publisher": ""}
+    if not html:
+        return metadata
 
     try:
-        # Extract JSON-LD data
         data = extruct.extract(
             html, base_url=get_base_url(html, url), syntaxes=["json-ld"]
         )
+        json_ld = data.get("json-ld", [])
 
-        if data.get("json-ld"):
-            for item in data["json-ld"]:
-                if item.get("@type") == "NewsArticle":
-                    # Extract title
-                    metadata["title"] = item.get("headline", "")
+        # Priority Search: 1. Comments, 2. Articles/Posts
+        target_item = None
+        for item in json_ld:
+            if item.get("@type") == "Comment":
+                target_item = item
+                break
 
-                    # Extract date
-                    metadata["date"] = item.get("datePublished", "")
-
-                    # Extract author
-                    authors = item.get("author", [])
-                    if authors and isinstance(authors, list):
-                        metadata["author"] = authors[0].get("name", "")
-                    elif authors and isinstance(authors, dict):
-                        metadata["author"] = authors.get("name", "")
-
-                    # Extract publisher
-                    publisher = item.get("publisher", {})
-                    if isinstance(publisher, dict):
-                        metadata["publisher"] = publisher.get("name", "")
-
-                    # Once we find a valid NewsArticle, we can break
+        if not target_item:
+            for item in json_ld:
+                if item.get("@type") in [
+                    "NewsArticle",
+                    "BlogPosting",
+                    "SocialMediaPosting",
+                    "DiscussionForumPosting",
+                    "Article",
+                ]:
+                    target_item = item
                     break
 
+        if target_item:
+            # 1. Author (Exact string preservation)
+            author_field = target_item.get("author")
+            if isinstance(author_field, list) and author_field:
+                metadata["author"] = author_field[0].get("name", "")
+            elif isinstance(author_field, dict):
+                metadata["author"] = author_field.get("name", "")
+            else:
+                metadata["author"] = str(author_field) if author_field else ""
+
+            # 2. Title Logic (Headline vs. 20-word Text fallback)
+            if target_item.get("@type") in ["NewsArticle", "BlogPosting", "Article"]:
+                metadata["title"] = target_item.get(
+                    "headline", target_item.get("name", "")
+                )
+            else:
+                # Fallback for Posts/Comments (APA Style: first 20 words)
+                full_text = target_item.get("text", target_item.get("articleBody", ""))
+                words = full_text.split()
+                metadata["title"] = " ".join(words[:20])
+                if len(words) > 20:
+                    metadata["title"] += " ..."
+
+            # 3. Date & Publisher
+            metadata["date"] = target_item.get("datePublished", "")
+            publisher = target_item.get("publisher", {})
+            metadata["publisher"] = (
+                publisher.get("name", "") if isinstance(publisher, dict) else ""
+            )
+
     except Exception as e:
-        print(f"Error extracting metadata: {str(e)}")
+        print(f"Extraction Error: {e}")
 
     return metadata
 
@@ -459,9 +481,7 @@ def confirm_action(question: str) -> bool:
 
 
 def analyze_zotero_library(
-    config: ZoteroConfig,
-    dry_run: bool = False,
-    report_file: Optional[str] = None
+    config: ZoteroConfig, dry_run: bool = False, report_file: Optional[str] = None
 ) -> None:
     """Main function to analyze Zotero library via API"""
     # Create Pyzotero client
@@ -574,6 +594,48 @@ def analyze_zotero_library(
     print(f"Errors encountered: {stats['errors']}")
 
 
+def run_yaml_tests(yaml_path: str):
+    """Offline Test Mode: Validates extraction logic against YAML test data."""
+    if not os.path.exists(yaml_path):
+        print(f"Error: YAML file not found at {yaml_path}")
+        return
+
+    with open(yaml_path, "r") as f:
+        data = yaml.safe_load(f)
+
+    test_cases = data.get("test_cases", {}).get("substack", []) + data.get(
+        "test_cases", {}
+    ).get("linkedin", [])
+    print(f"\n--- Running Offline Tests ({len(test_cases)} cases) ---")
+
+    passed = 0
+    for case in test_cases:
+        print(f"Testing: {case['url'][:60]}...")
+        html = download_page(case["url"])
+        extracted = extract_metadata(html, case["url"])
+
+        # Validate against YAML
+        author_ok = extracted["author"] == case["metadata"]["author"]
+        # Check if the YAML title is contained within the extracted title (handles whitespace/ellipsis)
+        title_ok = case["metadata"]["title"].strip(" .") in extracted["title"]
+
+        if author_ok and title_ok:
+            print("  ✅ PASS")
+            passed += 1
+        else:
+            print("  ❌ FAIL")
+            if not author_ok:
+                print(
+                    f"    Author: Expected '{case['metadata']['author']}', got '{extracted['author']}'"
+                )
+            if not title_ok:
+                print(
+                    f"    Title: Expected '{case['metadata']['title']}', got '{extracted['title']}'"
+                )
+
+    print(f"\nTest Summary: {passed}/{len(test_cases)} Passed")
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -595,6 +657,9 @@ def parse_args() -> argparse.Namespace:
         "--stream",
         action="store_true",
         help="Run in streaming mode to process updates in real-time",
+    )
+    parser.add_argument(
+        "--test-yaml", type=str, help="Path to YAML test file to run offline tests"
     )
     parser.add_argument(
         "-e", "--env", type=str, help="Path to custom .env file", default=".env"
@@ -684,7 +749,7 @@ def load_environment(env_file: str = ".env") -> None:
         raise FileNotFoundError(f"Environment file not found: {env_file}")
 
     load_dotenv(env_file)
-  
+
     # Validate required variables
     if not os.getenv("ZOTERO_API_KEY"):
         raise ValueError("ZOTERO_API_KEY is not set in environment file")
@@ -696,20 +761,21 @@ if __name__ == "__main__":
     try:
         print("Starting Substack Analyzer...")
         args = parse_args()
-        
-        # Load configuration from environment
-        config = ZoteroConfig.from_env(args.env)
-        
-        if args.stream:
-            print("Running in streaming mode...")
-            asyncio.run(run_streaming_mode(config))
+
+        if args.test_yaml:
+            run_yaml_tests(args.test_yaml)
         else:
-            print("Running in batch mode...")
-            analyze_zotero_library(
-                config,
-                dry_run=args.dry_run,
-                report_file=args.report
-            )
+            # Load configuration from environment
+            config = ZoteroConfig.from_env(args.env)
+
+            if args.stream:
+                print("Running in streaming mode...")
+                asyncio.run(run_streaming_mode(config))
+            else:
+                print("Running in batch mode...")
+                analyze_zotero_library(
+                    config, dry_run=args.dry_run, report_file=args.report
+                )
     except Exception as e:
         print(f"Error running analysis: {str(e)}")
         exit(1)

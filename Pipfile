@@ -12,6 +12,7 @@ extruct = "*"
 w3lib = "*"
 backoff = "*"  # For exponential retry
 websockets = ">=10.0"
+pyyaml = "*"
 
 [dev-packages]
 black = "*"
