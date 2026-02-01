@@ -369,6 +369,9 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
         updated_data["itemType"] = "blogPost"
     updated_data["websiteType"] = "Substack Newsletter"
 
+    if metadata["title"]:
+        updated_data["title"] = metadata["title"];
+        
     # Update blog title
     if metadata["publisher"]:
         updated_data["blogTitle"] = metadata["publisher"]
@@ -462,8 +465,8 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     updated_data["websiteType"] = "LinkedIn"
 
     if metadata["title"]:
-        updated_data["title"] = metadata["title"]
-
+        updated_data["title"] = metadata["title"];
+        
     if metadata["publisher"]:
         updated_data["blogTitle"] = metadata["publisher"]
 
@@ -726,7 +729,7 @@ def analyze_zotero_library(
         start += len(items)
         if len(items) < limit:
             break
-
+        
     # Filter for items with URLs
     web_items = [item for item in web_items if item["data"].get("url")]
 
@@ -742,6 +745,7 @@ def analyze_zotero_library(
             "errors": 0,
         }
     )
+
 
     logger.info(f"Found {total} web items to process.")
 
