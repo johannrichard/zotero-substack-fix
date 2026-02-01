@@ -37,7 +37,7 @@ test_cases:
     description: Discovered note
     metadata:
       title: Reminds me of Venkatesh‘s „LLMs as Index Funds“ and „Prompting is Managing“
-      author: Johann Richard
+      author: Johann
       should_not_add_ellipsis: true
     fixture_path: tests/fixtures/substack_johannrichardnotec_155804782.html
   - url: https://substack.com/profile/1135584-johann/note/c-157883674
@@ -46,7 +46,7 @@ test_cases:
     metadata:
       title: That also seems to hint at the existence of an optimal “Finished:Unfinished”
         memory ratio (or tension) and range (ETTO frontier)
-      author: Johann Richard
+      author: Johann
       should_not_add_ellipsis: true
     fixture_path: tests/fixtures/substack_profile1135584_johannnotec_157883674.html
   - url: https://substack.com/profile/1135584-johann/note/c-131146264
@@ -54,7 +54,7 @@ test_cases:
     description: Discovered Substack note
     metadata:
       title: Funnily enough, I came around a Dave Snowden post on LinkedIn
-      author: Johann Richard
+      author: Johann
       should_not_add_ellipsis: true
     fixture_path: tests/fixtures/substack_profile1135584_johannnotec_131146264.html
   linkedin:
@@ -70,14 +70,14 @@ test_cases:
     description: Discovered LinkedIn article
     metadata:
       title: Business development issues in the space industry
-      author: Satsearch
+      author: satsearch
     fixture_path: tests/fixtures/linkedin_pulsebusiness_development_issues_space_industry_satsearch_03mae.html
   - url: https://www.linkedin.com/posts/chaveso-chevy-cook_cynical-on-sinek-why-simon-sineks-works-activity-7285284551541600257-O201
     type: post
     description: Discovered LinkedIn post
     metadata:
       title: 'Cynical on Sinek: Why Simon Sinek’s Works Fall Short for Leaders'
-      author: Chaveso Cook
+      author: Chaveso "Chevy" Cook, Ph.D.
     fixture_path: tests/fixtures/linkedin_postschaveso_chevy_cook_cynical_on_sinek_why_simon_sineks_works_activity_7285284551541600257_o201.html
   - url: https://www.linkedin.com/posts/scotthutcheson_fostering-ownership-insights-from-self-determination-activity-7204889856429146113-66Eq
     type: post
@@ -86,14 +86,14 @@ test_cases:
       title: 'Fostering Ownership: Insights from Self-Determination Theory'
       author: Scott Hutcheson
     fixture_path: tests/fixtures/linkedin_postsscotthutcheson_fostering_ownership_insights_from_self_determination_activity_720488985642914611.html
-  - url: https://www.linkedin.com/posts/arsenii-hurtavtsov_natos-defence-innovation-accelerator-diana-activity-7341487429331140608-8GbV
+  - url: https://www.linkedin.com/feed/update/urn:li:activity:7341487429331140608?commentUrn=urn%3Ali%3Acomment%3A%28activity%3A7341487429331140608%2C7341566945747443712%29&dashCommentUrn=urn%3Ali%3Afsd_comment%3A%287341566945747443712%2Curn%3Ali%3Aactivity%3A7341487429331140608%29
     type: comment
     description: Discovered LinkedIn comment
     metadata:
       title: Is the DIANA evaluation same as last time? Where all the NATO countries
         have to agree on the winners?
       author: Sebastian Riehn
-    fixture_path: tests/fixtures/linkedin_postsarsenii_hurtavtsov_natos_defence_innovation_accelerator_diana_activity_7341487429331140608_8gbv.html
+    fixture_path: tests/fixtures/linkedin_feedupdateurnliactivity7341487429331140608.html
   - url: https://www.linkedin.com/posts/dave-snowden-2a93b_sitting-here-in-sheffield-having-presented-activity-7345793090101649408-PHeo
     type: post
     description: Discovered LinkedIn post
@@ -106,7 +106,8 @@ test_cases:
     type: post
     description: Discovered LinkedIn post
     metadata:
-      title: Why open source AI matters?
+      title: Back in 2023, I took a position (based upon a discussion at the beginning
+        of the year at the State ...
       author: Simon Wardley
     fixture_path: tests/fixtures/linkedin_postssimonwardley_why_open_source_ai_matters_activity_7290388242078593024_nkl9.html
   - url: https://www.linkedin.com/posts/simonwardley_when-people-say-chinas-deepseek-bombshell-activity-7289335553626365953-jRYr
