@@ -238,14 +238,17 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
         )
         json_ld = data.get("json-ld", [])
 
-        # Check if this is a LinkedIn comment URL
-        is_linkedin_comment = "commentUrn" in url
+        # Check if this is a LinkedIn URL
+        is_linkedin = "linkedin.com" in url.lower()
+        # LinkedIn comment URLs use /feed/update/ pattern
+        is_linkedin_feed_update = is_linkedin and "/feed/update/" in url
 
-        # Priority Search: 1. Comments, 2. Articles/Posts
+        # Priority Search: 1. Comments (including nested), 2. Articles/Posts
         target_item = None
 
-        # For LinkedIn comment URLs, look for nested comments in SocialMediaPosting
-        if is_linkedin_comment:
+        # For LinkedIn /feed/update/ pages, check if there are nested comments
+        # If comments exist in the JSON-LD, it IS a comment page
+        if is_linkedin_feed_update:
             for item in json_ld:
                 if item.get("@type") == "SocialMediaPosting" and "comment" in item:
                     comments = item.get("comment", [])
@@ -254,13 +257,14 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                         target_item = comments[0]
                         break
 
-        # If not a LinkedIn comment or no nested comment found, search at top level
+        # If no nested comment found, search at top level for Comment
         if not target_item:
             for item in json_ld:
                 if item.get("@type") == "Comment":
                     target_item = item
                     break
 
+        # If still no comment, look for articles/posts
         if not target_item:
             for item in json_ld:
                 if item.get("@type") in [
