@@ -30,6 +30,7 @@ stats = {
     "total": 0,
     "processed": 0,
     "substackFound": 0,
+    "linkedinFound": 0,
     "updated": 0,
     "errors": 0,
     "urls_cleaned": 0,
@@ -215,7 +216,7 @@ def check_if_substack(html: str, url: str) -> bool:
                         "substackcdn.com" in str(item.get("image", "")),
                         publisher.get("url", "").endswith("substack.com"),
                         isinstance(publisher.get("identifier", ""), str)
-                        and publisher["identifier"].startswith("pub:"),
+                        and publisher.get("identifier", "").startswith("pub:"),
                     ]
                 ):
                     return True
@@ -316,15 +317,18 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
     return metadata
 
 
-def prepare_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
+def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     """
     Prepare an updated Zotero item with extracted metadata
     """
     # Create a copy of the item data
     updated_data = dict(item["data"])
 
-    # Update item type
-    updated_data["itemType"] = "blogPost"
+    # Update item type (use forumPost for comments/notes)
+    if metadata.get("type") in ["Comment", "DiscussionForumPosting"]:
+        updated_data["itemType"] = "forumPost"
+    else:
+        updated_data["itemType"] = "blogPost"
     updated_data["websiteType"] = "Substack Newsletter"
 
     # Update blog title
@@ -399,9 +403,89 @@ def prepare_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     return updated_data
 
 
+def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
+    """
+    Prepare an updated Zotero item with extracted LinkedIn metadata
+    
+    Args:
+        item: Original Zotero item
+        metadata: Extracted metadata dictionary from LinkedIn page
+    """
+    updated_data = dict(item["data"])
+
+    if metadata.get("type") in ["Comment", "DiscussionForumPosting"]:
+        updated_data["itemType"] = "forumPost"
+    else:
+        updated_data["itemType"] = "blogPost"
+    updated_data["websiteType"] = "LinkedIn"
+
+    if metadata["publisher"]:
+        updated_data["blogTitle"] = metadata["publisher"]
+
+    if metadata["date"]:
+        try:
+            meta_date = date_parser.parse(metadata["date"])
+            meta_date_str = meta_date.strftime("%Y-%m-%d")
+            print(f"Parsed metadata date: {metadata['date']} → {meta_date_str}")
+
+            current_date_str = updated_data.get("date", "").strip()
+            if current_date_str:
+                try:
+                    current_date = date_parser.parse(current_date_str)
+                    current_date_str = current_date.strftime("%Y-%m-%d")
+                    print(
+                        f"Parsed current date: {updated_data['date']} → {current_date_str}"
+                    )
+                except Exception as e:
+                    print(
+                        f"Warning: Could not parse existing date '{current_date_str}': {str(e)}"
+                    )
+                    current_date_str = ""
+
+            if not current_date_str or current_date_str != meta_date_str:
+                print(
+                    f"Date will be updated: {current_date_str or 'Not set'} → {meta_date_str}"
+                )
+                updated_data["date"] = meta_date_str
+            else:
+                print(f"Dates match, no update needed: {current_date_str}")
+
+        except Exception as e:
+            print(
+                f"Warning: Could not parse metadata date '{metadata['date']}': {str(e)}"
+            )
+            if not updated_data.get("date"):
+                updated_data["date"] = metadata["date"]
+                print(f"Using original metadata date string: {metadata['date']}")
+
+    if metadata["author"] and (
+        not updated_data.get("creators") or len(updated_data["creators"]) == 0
+    ):
+        name_parts = metadata["author"].split()
+        if name_parts:
+            last_name = name_parts[-1]
+            first_name = " ".join(name_parts[:-1])
+
+            updated_data["creators"] = [
+                {
+                    "firstName": first_name,
+                    "lastName": last_name,
+                    "creatorType": "author",
+                }
+            ]
+
+    if "tags" not in updated_data:
+        updated_data["tags"] = []
+
+    if not any(tag["tag"] == "LinkedIn" for tag in updated_data["tags"]):
+        updated_data["tags"].append({"tag": "LinkedIn"})
+
+    return updated_data
+
+
 def process_item(item: Dict) -> Optional[Dict]:
     """
-    Process a single Zotero item, cleaning URL and checking for Substack metadata
+    Process a single Zotero item, cleaning URL and checking for Substack/LinkedIn metadata
 
     Args:
         item: Zotero item to process
@@ -428,43 +512,56 @@ def process_item(item: Dict) -> Optional[Dict]:
         needs_update = True
         print(f"Cleaned URL: {url} → {cleaned_url}")
 
-    # Download and check for Substack only if we haven't already categorized it
+    # Download and check for Substack/LinkedIn only if we haven't already categorized it
     if not (
         any(tag["tag"] == "zotero:processed" for tag in item["data"].get("tags", []))
     ):
-
         html = download_page(cleaned_url)
-        if html and check_if_substack(html, cleaned_url):
-            print(f"✓ Substack detected for: {title[:50]}...")
+        is_linkedin = "linkedin.com" in cleaned_url.lower()
+        is_substack = html and (
+            check_if_substack(html, cleaned_url) or is_substack_note_url(cleaned_url)
+        )
+
+        if html and (is_substack or is_linkedin):
             global stats
-            stats["substackFound"] += 1
+            if is_substack:
+                print(f"✓ Substack detected for: {title[:50]}...")
+                stats["substackFound"] += 1
+            else:
+                print(f"✓ LinkedIn detected for: {title[:50]}...")
+                stats["linkedinFound"] += 1
 
-            # Extract and update Substack metadata
             metadata = extract_metadata(html, url)
-            updated_data = prepare_item_update(item, metadata)
+            if is_substack:
+                updated_data = prepare_substack_item_update(item, metadata)
+            else:
+                updated_data = prepare_linkedin_item_update(item, metadata)
 
-            # Clean URL
             updated_data["url"] = cleaned_url
             needs_update = True
 
-            # Log metadata changes
             print("\nMetadata updates:")
             print("----------------")
 
-            # Add URL changes to logging
-            old_url = item["data"].get("url", "")
-            new_url = updated_data.get("url", "")
-            if old_url != new_url:
-                print(f"URL: {old_url} → {new_url}")
+            # Type
+            old_type = item["data"].get("itemType", "Not set")
+            new_type = updated_data.get("itemType", "Not set")
+            if old_type != new_type:
+                print(f"Type: {old_type} → {new_type}")
 
+            # Title
+            old_title = item["data"].get("title", "Not set")
+            new_title = updated_data.get("title", "Not set")
+            if old_title != new_title:
+                print(f"Title: {old_title[:60]}... → {new_title[:60]}...")
+            
+            # Date
             if metadata["date"]:
                 print(
                     f"Date: {item['data'].get('date', 'Not set')} → {updated_data.get('date', 'Not set')}"
                 )
-            if metadata["publisher"]:
-                print(
-                    f"Website/Blog: {item['data'].get('blogTitle', 'Not set')} → {updated_data.get('blogTitle', 'Not set')}"
-                )
+            
+            # Author
             if metadata["author"]:
                 old_authors = ", ".join(
                     f"{c.get('firstName', '')} {c.get('lastName', '')}"
@@ -475,12 +572,19 @@ def process_item(item: Dict) -> Optional[Dict]:
                     for c in updated_data.get("creators", [])
                 )
                 if old_authors != new_authors:
-                    print(f"Authors: {old_authors or 'Not set'} → {new_authors}")
+                    print(f"Author: {old_authors or 'Not set'} → {new_authors}")
+            
+            # Website/Blog
+            if metadata["publisher"]:
+                print(
+                    f"Website/Blog: {item['data'].get('blogTitle', 'Not set')} → {updated_data.get('blogTitle', 'Not set')}"
+                )
+            
             print("----------------")
         else:
-            print(f"✗ Not a Substack site: {title[:50]}...")
+            print(f"✗ Not a Substack or LinkedIn site: {title[:50]}...")
     else:
-        print(f"✓ Already categorized as Substack: {title[:50]}...")
+        print(f"✓ Already processed: {title[:50]}...")
 
     if needs_update:
         # Add a tag to indicate processing
@@ -551,7 +655,15 @@ def analyze_zotero_library(
 
     # Initialize counters
     global stats
-    stats.update({"urls_cleaned": 0, "substackFound": 0, "updated": 0, "errors": 0})
+    stats.update(
+        {
+            "urls_cleaned": 0,
+            "substackFound": 0,
+            "linkedinFound": 0,
+            "updated": 0,
+            "errors": 0,
+        }
+    )
 
     print(f"Found {len(web_items)} web items to process.")
 
@@ -601,6 +713,7 @@ def analyze_zotero_library(
                 f"Processed {stats['processed']}/{stats['total']} items. "
                 f"Cleaned {stats['urls_cleaned']} URLs. "
                 f"Found {stats['substackFound']} Substack posts. "
+                f"Found {stats['linkedinFound']} LinkedIn posts. "
                 f"Updated {stats['updated']} items."
             )
 
@@ -615,6 +728,7 @@ def analyze_zotero_library(
     print(f"Total items processed: {stats['processed']}")
     print(f"URLs cleaned: {stats['urls_cleaned']}")
     print(f"Substack posts identified: {stats['substackFound']}")
+    print(f"LinkedIn posts identified: {stats['linkedinFound']}")
     if not dry_run:
         print(f"Items updated in Zotero: {stats['updated']}")
     print(f"Errors encountered: {stats['errors']}")
@@ -728,17 +842,20 @@ def generate_markdown_report(
         date_str = datetime.now().strftime("%Y%m%d")
         filename = f"Changes_{date_str}.md"
 
-    # Separate URL cleaning and Substack updates
+    # Separate URL cleaning, Substack updates, and LinkedIn updates
     url_updates = []
     substack_updates = defaultdict(list)
+    linkedin_updates = []
 
     for item in updates:
         data = item.get("data", item)  # Handle both raw data and Zotero item format
 
-        # Check if this is a Substack post
+        # Check if this is a Substack or LinkedIn post
         if data.get("websiteType") == "Substack Newsletter":
             blog_title = data.get("blogTitle", "Unknown Blog")
             substack_updates[blog_title].append(data)
+        elif data.get("websiteType") == "LinkedIn":
+            linkedin_updates.append(data)
         else:
             url_updates.append(data)
 
@@ -762,6 +879,7 @@ def generate_markdown_report(
             md_content.append(f"\n### {blog}")
             for item in sorted(items, key=lambda x: x.get("title", "")):
                 md_content.append(f"\n#### {item.get('title', 'Untitled')}")
+                md_content.append(f"- Type: {item.get('itemType', 'N/A')}")
                 md_content.append(f"- URL: {item.get('url', 'No URL')}")
                 if item.get("date"):
                     md_content.append(f"- Date: {item['date']}")
@@ -772,6 +890,23 @@ def generate_markdown_report(
                     )
                     md_content.append(f"- Author(s): {authors}")
                 md_content.append("")
+
+    # Report LinkedIn updates
+    if linkedin_updates:
+        md_content.append("\n## LinkedIn Updates")
+        for item in sorted(linkedin_updates, key=lambda x: x.get("title", "")):
+            md_content.append(f"\n### {item.get('title', 'Untitled')}")
+            md_content.append(f"- Type: {item.get('itemType', 'N/A')}")
+            md_content.append(f"- URL: {item.get('url', 'No URL')}")
+            if item.get("date"):
+                md_content.append(f"- Date: {item['date']}")
+            if item.get("creators"):
+                authors = ", ".join(
+                    f"{c.get('firstName', '')} {c.get('lastName', '')}"
+                    for c in item["creators"]
+                )
+                md_content.append(f"- Author(s): {authors}")
+            md_content.append("")
 
     # Write to file
     Path(filename).write_text("\n".join(md_content))
