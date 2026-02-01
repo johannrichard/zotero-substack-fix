@@ -1,0 +1,174 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                    TEST FAILURE DIAGNOSTIC SUMMARY                           ║
+║                         5 Failures Analyzed                                  ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+TEST RESULTS: 11/16 passing (68.75%)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ISSUE CATEGORY BREAKDOWN                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+1. CODE BUG (2 failures) ⚙️ 
+   LinkedIn Articles: Wrong JSON-LD field extracted
+   
+2. STALE TEST DATA (3 failures) 📝
+   Test expectations don't match updated fixtures
+   
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ FAILURE #1-2: LinkedIn Articles - CODE BUG                                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Tests Affected:
+  • linkedin_pulseeu_space_top_5_priorities...
+  • linkedin_pulsebusiness_development_issues...
+
+Problem: Code extracts WRONG field from JSON-LD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+LinkedIn Article Structure:
+  {
+    "@type": "Article",
+    "name": "EU Space: the Top 5 Priorities..."    ← SHOULD USE THIS ✓
+    "headline": "Over the past four years..."      ← CODE USES THIS ✗
+  }
+
+Current Code (line 294-297):
+  if target_item.get("@type") in [..., "Article"]:
+      metadata["title"] = target_item.get("headline", target_item.get("name", ""))
+                                        ^^^^^^^^      ^^^^^^^^^^^^^^
+                                        WRONG         CORRECT
+
+Expected:  "EU Space: the Top 5 Priorities for 2024 and beyond"
+Got:       "Over the past four years of this mandate..."
+
+FIX REQUIRED: Swap field priority - use 'name' before 'headline' for Articles
+IMPACT: Will immediately fix 2 tests
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ FAILURE #3-4: LinkedIn SocialMediaPosting - STALE TEST DATA                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Tests Affected:
+  • linkedin_postschaveso_chevy_cook_cynical_on_sinek...
+  • linkedin_postssimonwardley_when_people_say_chinas_deepseek...
+
+Problem: Expected titles NOT FOUND in fixture JSON-LD
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Example - Chaveso Cook Post:
+  Expected (from YAML): "Cynical on Sinek: Why Simon Sinek's Works..."
+  Fixture contains:     "Here's a why to start with… why do so many..."
+  
+  The expected title does NOT exist in the fixture! ⚠️
+
+Root Cause:
+  • Fixtures were recently re-downloaded/updated
+  • Test expectations based on old data or manual entry
+  • Mismatch between test data and actual fixtures
+
+FIX REQUIRED: Update test expectations to match current fixture content
+IMPACT: Will fix 2 tests
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ FAILURE #5: Substack Note - STALE TEST DATA                                  │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Test Affected:
+  • substack_contraptionsnotec_138536158
+
+Problem: Fixture has more content than test expects
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Expected: "Haven't thought about my piece cited here (the GUTs thing 
+           from 2018) in a long time. I think what Ben"
+
+Got:      "Haven't thought about my piece cited here (the GUTs thing 
+           from 2018, https://contraptions.venkateshrao.com/p/guts...)
+           in a long time. I think what ..."
+           
+Difference: Fixture now includes URL inline ← Fixture was updated
+
+FIX REQUIRED: Update test expectation to include the URL
+IMPACT: Will fix 1 test
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ RECOMMENDED FIX PRIORITY                                                     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Priority 1 - CODE FIX (High Impact)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+File: src/main.py, Line 294-297
+Change: Swap field priority for Article type
+
+  FROM: metadata["title"] = target_item.get("headline", target_item.get("name", ""))
+  TO:   metadata["title"] = target_item.get("name", target_item.get("headline", ""))
+
+Fixes: 2 LinkedIn Article tests
+
+Priority 2 - TEST DATA UPDATES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+File: tests/data.yaml
+
+Update 3 test expectations:
+  1. Chaveso Cook SocialMediaPosting title
+  2. Simon Wardley SocialMediaPosting title
+  3. Substack note c-138536158 title (add URL)
+
+Fixes: 3 tests with stale expectations
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ DETAILED FIX CHECKLIST                                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+CODE CHANGES:
+  [ ] Modify src/main.py line 295-296
+      Change Article field priority: name → headline (not headline → name)
+
+TEST DATA CHANGES:
+  [ ] Update tests/data.yaml line ~92
+      Chaveso Cook title: "Here's a why to start with…"
+      
+  [ ] Update tests/data.yaml line ~133
+      Simon Wardley title: "When people say \"China's DeepSeek Bombshell\"..."
+      
+  [ ] Update tests/data.yaml line ~25-27
+      Substack c-138536158: Add URL to expected title
+
+VERIFICATION:
+  [ ] Run test suite: python3 src/main.py --test-yaml
+  [ ] Expected result: 16/16 tests passing
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ ADDITIONAL INSIGHTS                                                          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+Code vs Data Issues:
+  • 1 code bug (Article field selection)
+  • 4 test data issues (outdated expectations)
+
+Why Test Data Became Stale:
+  • Fixtures appear to have been re-downloaded
+  • LinkedIn may have changed JSON-LD structure
+  • Test expectations weren't updated in sync
+
+Alternative Enhancement (Optional):
+  Consider using 'headline' for SocialMediaPosting when available:
+  
+  if target_item.get("@type") == "SocialMediaPosting" and "headline" in target_item:
+      metadata["title"] = target_item.get("headline")
+  else:
+      # Use 20-word fallback...
+
+  This would better match LinkedIn's SocialMediaPosting structure.
+
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          DIAGNOSIS COMPLETE                                  ║
+║                                                                              ║
+║  Root Causes Identified:                                                    ║
+║    • 1 code bug (field selection)                                           ║
+║    • 4 stale test expectations                                              ║
+║                                                                              ║
+║  Expected Outcome: All 16 tests passing after fixes                         ║
+╚══════════════════════════════════════════════════════════════════════════════╝
