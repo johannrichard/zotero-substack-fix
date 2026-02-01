@@ -228,7 +228,7 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
     Extracts metadata from JSON-LD. Handles Articles, Posts, and Comments.
     Maintains full author names as found in the source.
     """
-    metadata = {"title": "", "author": "", "date": "", "publisher": ""}
+    metadata = {"title": "", "author": "", "date": "", "publisher": "", "type": ""}
     if not html:
         return metadata
 
@@ -258,6 +258,9 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                     break
 
         if target_item:
+            # Store the @type for reference
+            metadata["type"] = target_item.get("@type", "")
+
             # 1. Author (Exact string preservation)
             author_field = target_item.get("author")
             if isinstance(author_field, list) and author_field:
@@ -641,12 +644,17 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
             passed += 1
         else:
             print(f"❌ {source} {url}")
+            # Show the JSON-LD type and what Zotero entry type would be created
+            if extracted["type"]:
+                print(f"    Type: {extracted['type']} → Zotero: blogPost")
             if not author_ok:
                 print(
                     f"    Expected Author: {expected['author']} | Got: {extracted['author']}"
                 )
             if not title_ok:
-                print(f"    Expected Title snippet: {expected['title'][:30]}...")
+                print(
+                    f"    Expected Title: {expected['title']} | Got: {extracted['title']}"
+                )
 
     print(f"\nResult: {passed}/{len(cases)} tests passed.")
 
