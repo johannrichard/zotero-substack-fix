@@ -91,12 +91,14 @@ Closes #38
 ### Example Scenarios
 
 **Good** 🟢:
+
 ```python
 # Change one line to fix field extraction
 metadata["title"] = target_item.get("name", target_item.get("headline", ""))
 ```
 
 **Bad** 🔴:
+
 ```python
 # Don't create a whole new abstraction layer
 class MetadataExtractor:
@@ -178,6 +180,7 @@ make check
 - **Test string matching**: Be aware of Unicode character differences
 
 Example:
+
 ```python
 # Correct ✅
 with open('file.yaml', 'w', encoding='utf-8') as f:
@@ -268,11 +271,13 @@ All git commits/pushes are handled by the `report_progress` tool - **do not use 
 **Commit**: `fix: 🐛 Correct LinkedIn Article title extraction`
 
 **Changes**:
+
 - Modified 1 line in `src/main.py`
 - Changed field priority from `headline` to `name`
 - Fixed 2 failing tests
 
 **Why it's good**:
+
 - Minimal change (1 line)
 - Clear problem and solution
 - Proper semantic commit message
@@ -282,11 +287,13 @@ All git commits/pushes are handled by the `report_progress` tool - **do not use 
 **Commit**: `test: ✅ Update test expectations to match current fixtures`
 
 **Changes**:
+
 - Updated 3 test expectations in `tests/data.yaml`
 - Preserved Unicode characters
 - No code changes needed
 
 **Why it's good**:
+
 - Surgical fix to test data only
 - Preserved special characters correctly
 - Clear documentation of what changed
