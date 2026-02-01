@@ -22,6 +22,9 @@ import yaml
 from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
 
+# Constants
+TITLE_FALLBACK_WORD_LIMIT = 20  # APA citation style: first 20 words for posts/comments
+
 # Statistics for reporting
 stats = {
     "total": 0,
@@ -270,11 +273,11 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
                     "headline", target_item.get("name", "")
                 )
             else:
-                # Fallback for Posts/Comments (APA Style: first 20 words)
+                # Fallback for Posts/Comments (APA Style)
                 full_text = target_item.get("text", target_item.get("articleBody", ""))
                 words = full_text.split()
-                metadata["title"] = " ".join(words[:20])
-                if len(words) > 20:
+                metadata["title"] = " ".join(words[:TITLE_FALLBACK_WORD_LIMIT])
+                if len(words) > TITLE_FALLBACK_WORD_LIMIT:
                     metadata["title"] += " ..."
 
             # 3. Date & Publisher
@@ -603,21 +606,24 @@ def run_yaml_tests(yaml_path: str):
     with open(yaml_path, "r") as f:
         data = yaml.safe_load(f)
 
-    test_cases = data.get("test_cases", {}).get("substack", []) + data.get(
-        "test_cases", {}
-    ).get("linkedin", [])
+    test_cases_dict = data.get("test_cases", {})
+    test_cases = test_cases_dict.get("substack", []) + test_cases_dict.get(
+        "linkedin", []
+    )
     print(f"\n--- Running Offline Tests ({len(test_cases)} cases) ---")
 
     passed = 0
     for case in test_cases:
-        print(f"Testing: {case['url'][:60]}...")
+        url_display = case["url"][:60] + "..." if len(case["url"]) > 60 else case["url"]
+        print(f"Testing: {url_display}")
         html = download_page(case["url"])
         extracted = extract_metadata(html, case["url"])
 
-        # Validate against YAML
+        # Validate against YAML (normalize whitespace and ellipsis)
         author_ok = extracted["author"] == case["metadata"]["author"]
-        # Check if the YAML title is contained within the extracted title (handles whitespace/ellipsis)
-        title_ok = case["metadata"]["title"].strip(" .") in extracted["title"]
+        expected_title = case["metadata"]["title"].strip(" .")
+        extracted_title = extracted["title"].strip(" .")
+        title_ok = expected_title in extracted_title
 
         if author_ok and title_ok:
             print("  ✅ PASS")
