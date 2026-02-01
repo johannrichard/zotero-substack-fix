@@ -597,49 +597,58 @@ def analyze_zotero_library(
     print(f"Errors encountered: {stats['errors']}")
 
 
-def run_yaml_tests(yaml_path: str):
-    """Offline Test Mode: Validates extraction logic against YAML test data."""
+def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
+    """
+    Offline-first Test Mode. Uses local fixtures if they exist.
+    """
     if not os.path.exists(yaml_path):
-        print(f"Error: YAML file not found at {yaml_path}")
+        print(f"Error: YAML test data not found at {yaml_path}")
         return
 
-    with open(yaml_path, "r") as f:
+    with open(yaml_path, "r", encoding="utf-8") as f:
         data = yaml.safe_load(f)
 
-    test_cases_dict = data.get("test_cases", {})
-    test_cases = test_cases_dict.get("substack", []) + test_cases_dict.get(
-        "linkedin", []
-    )
-    print(f"\n--- Running Offline Tests ({len(test_cases)} cases) ---")
+    cases = data.get("test_cases", {}).get("substack", []) + data.get(
+        "test_cases", {}
+    ).get("linkedin", [])
 
     passed = 0
-    for case in test_cases:
-        url_display = case["url"][:60] + "..." if len(case["url"]) > 60 else case["url"]
-        print(f"Testing: {url_display}")
-        html = download_page(case["url"])
-        extracted = extract_metadata(html, case["url"])
+    print(f"--- Running Tests (YAML: {yaml_path}) ---")
 
-        # Validate against YAML (normalize whitespace and ellipsis)
-        author_ok = extracted["author"] == case["metadata"]["author"]
-        expected_title = case["metadata"]["title"].strip(" .")
-        extracted_title = extracted["title"].strip(" .")
-        title_ok = expected_title in extracted_title
+    for case in cases:
+        url = case["url"]
+        expected = case["metadata"]
+        fixture_path = case.get("fixture_path")
+
+        html = ""
+        # Try loading from local repository first
+        if fixture_path and os.path.exists(fixture_path):
+            with open(fixture_path, "r", encoding="utf-8") as f:
+                html = f.read()
+            source = "[LOCAL]"
+        else:
+            html = download_page(url)
+            source = "[LIVE] "
+
+        extracted = extract_metadata(html, url)
+
+        # Validation
+        author_ok = extracted["author"] == expected["author"]
+        title_ok = expected["title"].strip(" .") in extracted["title"]
 
         if author_ok and title_ok:
-            print("  ✅ PASS")
+            print(f"✅ {source} {url[:50]}...")
             passed += 1
         else:
-            print("  ❌ FAIL")
+            print(f"❌ {source} {url}")
             if not author_ok:
                 print(
-                    f"    Author: Expected '{case['metadata']['author']}', got '{extracted['author']}'"
+                    f"    Expected Author: {expected['author']} | Got: {extracted['author']}"
                 )
             if not title_ok:
-                print(
-                    f"    Title: Expected '{case['metadata']['title']}', got '{extracted['title']}'"
-                )
+                print(f"    Expected Title snippet: {expected['title'][:30]}...")
 
-    print(f"\nTest Summary: {passed}/{len(test_cases)} Passed")
+    print(f"\nResult: {passed}/{len(cases)} tests passed.")
 
 
 def parse_args() -> argparse.Namespace:
@@ -665,7 +674,11 @@ def parse_args() -> argparse.Namespace:
         help="Run in streaming mode to process updates in real-time",
     )
     parser.add_argument(
-        "--test-yaml", type=str, help="Path to YAML test file to run offline tests"
+        "--test-yaml",
+        nargs="?",
+        const="tests/data.yaml",
+        type=str,
+        help="Path to YAML test file to run offline tests (default: tests/data.yaml)",
     )
     parser.add_argument(
         "-e", "--env", type=str, help="Path to custom .env file", default=".env"
