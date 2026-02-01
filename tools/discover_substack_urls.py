@@ -23,13 +23,9 @@ import requests
 from bs4 import BeautifulSoup
 
 # Try to import metadata extraction functions if available
-try:
-    sys.path.insert(0, "./src")
-    from main import extract_metadata, get_substack_content_type, check_if_substack
-    METADATA_AVAILABLE = True
-except ImportError:
-    METADATA_AVAILABLE = False
-    print("Warning: Metadata extraction not available. Install dependencies or run from repo root.", file=sys.stderr)
+sys.path.insert(0, "./src")
+from main import extract_metadata, get_substack_content_type, check_if_substack
+METADATA_AVAILABLE = True
 
 
 class SubstackDiscovery:
@@ -110,7 +106,7 @@ class SubstackDiscovery:
                 for link in soup.find_all("a", href=True):
                     href = link["href"]
                     if ".substack.com" in href:
-                        parsed = urlparse(href)
+                        parsed = urlparse(url=  href)
                         domain = parsed.netloc
                         if domain and domain not in discovered:
                             discovered.append(domain)
