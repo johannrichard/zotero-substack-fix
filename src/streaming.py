@@ -5,6 +5,7 @@ import backoff
 from typing import Set
 from pyzotero import zotero
 
+
 class ZoteroStreamHandler:
     def __init__(self, zot: zotero.Zotero, api_key: str):
         self.zot = zot
@@ -15,19 +16,17 @@ class ZoteroStreamHandler:
         self.retry_delay = 10  # Initial retry delay in seconds
 
     @backoff.on_exception(
-        backoff.expo,
-        (websockets.ConnectionClosed, ConnectionError),
-        max_tries=10
+        backoff.expo, (websockets.ConnectionClosed, ConnectionError), max_tries=10
     )
     async def connect(self):
         """Establish WebSocket connection with exponential retry"""
         if self.ws:
             await self.ws.close()
-        
-        self.ws = await websockets.connect('wss://stream.zotero.org')
+
+        self.ws = await websockets.connect("wss://stream.zotero.org")
         response = await self.ws.recv()
         connection_info = json.loads(response)
-        
+
         if connection_info["event"] == "connected":
             self.connected = True
             print("✓ Connected to Zotero streaming API")
@@ -47,12 +46,7 @@ class ZoteroStreamHandler:
 
         subscription_message = {
             "action": "createSubscriptions",
-            "subscriptions": [
-                {
-                    "apiKey": self.api_key,
-                    "topics": [topic]
-                }
-            ]
+            "subscriptions": [{"apiKey": self.api_key, "topics": [topic]}],
         }
 
         await self.ws.send(json.dumps(subscription_message))
@@ -81,17 +75,22 @@ class ZoteroStreamHandler:
                     items = self.zot.items(
                         limit=5,  # Adjust as needed
                         sort="dateModified",
-                        direction="desc"
+                        direction="desc",
                     )
 
                     # Process items
                     for item in items:
                         if "url" in item["data"]:
-                            from main import process_item  # Import here to avoid circular imports
+                            from main import (
+                                process_item,
+                            )  # Import here to avoid circular imports
+
                             if updated_data := process_item(item):
                                 try:
                                     self.zot.update_item(updated_data)
-                                    print(f"✓ Updated item: {item['data'].get('title', '')[:50]}...")
+                                    print(
+                                        f"✓ Updated item: {item['data'].get('title', '')[:50]}..."
+                                    )
                                 except Exception as e:
                                     print(f"Error updating item: {str(e)}")
 

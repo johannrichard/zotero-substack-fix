@@ -357,10 +357,16 @@ def validate_item_fields(item_data: Dict) -> Dict:
     invalid fields to Zotero API.
 
     Based on Zotero API v3 schema documentation:
-    - forumPost item type has valid field: forumTitle
+    - webpage item type has valid field: websiteTitle
+    - forumPost item type has valid field: forumTitle (and postType)
       (https://www.zotero.org/support/dev/web_api/v3/types_and_fields)
     - blogPost item type has valid field: blogTitle
     - Sending incompatible fields will cause API validation errors
+
+    When changing item types, this function removes invalid fields:
+    - Removes websiteTitle from blogPost and forumPost (webpage field)
+    - Removes blogTitle from forumPost
+    - Removes forumTitle and postType from blogPost
 
     Args:
         item_data: Dictionary containing item data with itemType and other fields
@@ -379,15 +385,21 @@ def validate_item_fields(item_data: Dict) -> Dict:
 
     # Remove incompatible fields based on item type per Zotero schema
     if item_type == "forumPost":
-        # Per Zotero schema: forumPost uses forumTitle, not blogTitle
+        # Per Zotero schema: forumPost uses forumTitle, not blogTitle or websiteTitle
         # Valid fields include: forumTitle, postType, title, creators, etc.
         if "blogTitle" in validated_data:
             del validated_data["blogTitle"]
+        if "websiteTitle" in validated_data:
+            del validated_data["websiteTitle"]
     elif item_type == "blogPost":
-        # Per Zotero schema: blogPost uses blogTitle, not forumTitle
+        # Per Zotero schema: blogPost uses blogTitle, not forumTitle or websiteTitle
         # Valid fields include: blogTitle, websiteType, title, creators, etc.
         if "forumTitle" in validated_data:
             del validated_data["forumTitle"]
+        if "websiteTitle" in validated_data:
+            del validated_data["websiteTitle"]
+        if "postType" in validated_data:
+            del validated_data["postType"]
 
     return validated_data
 

@@ -119,6 +119,68 @@ def test_validate_item_fields():
     assert "forumTitle" not in result, "forumTitle should be removed from blogPost"
     print("✅ Validation correctly removes forumTitle from blogPost")
 
+    # Test forumPost with websiteTitle (should be removed)
+    data = {
+        "itemType": "forumPost",
+        "forumTitle": "Test Forum",
+        "websiteTitle": "Should Be Removed",
+    }
+    result = validate_item_fields(data)
+    assert "forumTitle" in result, "forumTitle should be preserved"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from forumPost"
+    print("✅ Validation correctly removes websiteTitle from forumPost")
+
+    # Test blogPost with websiteTitle (should be removed)
+    data = {
+        "itemType": "blogPost",
+        "blogTitle": "Test Blog",
+        "websiteTitle": "Should Be Removed",
+    }
+    result = validate_item_fields(data)
+    assert "blogTitle" in result, "blogTitle should be preserved"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from blogPost"
+    print("✅ Validation correctly removes websiteTitle from blogPost")
+
+    # Test blogPost with postType (should be removed)
+    data = {
+        "itemType": "blogPost",
+        "blogTitle": "Test Blog",
+        "postType": "Should Be Removed",
+    }
+    result = validate_item_fields(data)
+    assert "blogTitle" in result, "blogTitle should be preserved"
+    assert "postType" not in result, "postType should be removed from blogPost"
+    print("✅ Validation correctly removes postType from blogPost")
+
+    # Test comprehensive cleanup: webpage → forumPost
+    data = {
+        "itemType": "forumPost",
+        "forumTitle": "Test Forum",
+        "websiteTitle": "Old Webpage Title",
+        "blogTitle": "Old Blog Title",
+    }
+    result = validate_item_fields(data)
+    assert "forumTitle" in result, "forumTitle should be preserved"
+    assert "websiteTitle" not in result, "websiteTitle should be removed"
+    assert "blogTitle" not in result, "blogTitle should be removed"
+    print("✅ Validation correctly cleans up multiple invalid fields from forumPost")
+
+    # Test comprehensive cleanup: webpage → blogPost
+    data = {
+        "itemType": "blogPost",
+        "blogTitle": "Test Blog",
+        "websiteTitle": "Old Webpage Title",
+        "forumTitle": "Old Forum Title",
+        "postType": "Old Post Type",
+    }
+    result = validate_item_fields(data)
+    assert "blogTitle" in result, "blogTitle should be preserved"
+    assert "websiteTitle" not in result, "websiteTitle should be removed"
+    assert "forumTitle" not in result, "forumTitle should be removed"
+    assert "postType" not in result, "postType should be removed"
+    print("✅ Validation correctly cleans up multiple invalid fields from blogPost")
+
+
 
 def test_forum_type_mappings():
     """Test that Comment, DiscussionForumPosting, and SocialMediaPosting map to forumPost"""
@@ -188,6 +250,165 @@ def test_blog_type_mappings():
         print(f"✅ {json_ld_type or 'None'} correctly maps to blogPost with blogTitle")
 
 
+def test_webpage_to_forumpost_conversion():
+    """Test that webpage → forumPost conversion removes websiteTitle"""
+    # Mock webpage item with websiteTitle
+    item = {
+        "data": {
+            "itemType": "webpage",
+            "websiteTitle": "Old Website Title",
+            "creators": [],
+            "tags": [],
+            "url": "https://example.com",
+        }
+    }
+
+    # Metadata indicating conversion to forumPost
+    metadata = {
+        "type": "Comment",
+        "title": "Test Comment",
+        "author": "Test Author",
+        "date": "2024-01-01",
+        "publisher": "Test Forum",
+    }
+
+    # Test Substack conversion
+    result = prepare_substack_item_update(item, metadata)
+    assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
+    assert "forumTitle" in result, "forumTitle should be set"
+    assert (
+        "websiteTitle" not in result
+    ), "websiteTitle should be removed from forumPost"
+    assert "blogTitle" not in result, "blogTitle should not be present"
+    print("✅ Substack webpage → forumPost conversion removes websiteTitle")
+
+    # Test LinkedIn conversion
+    result = prepare_linkedin_item_update(item, metadata)
+    assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
+    assert "forumTitle" in result, "forumTitle should be set"
+    assert (
+        "websiteTitle" not in result
+    ), "websiteTitle should be removed from forumPost"
+    assert "blogTitle" not in result, "blogTitle should not be present"
+    print("✅ LinkedIn webpage → forumPost conversion removes websiteTitle")
+
+
+def test_webpage_to_blogpost_conversion():
+    """Test that webpage → blogPost conversion removes websiteTitle"""
+    # Mock webpage item with websiteTitle
+    item = {
+        "data": {
+            "itemType": "webpage",
+            "websiteTitle": "Old Website Title",
+            "creators": [],
+            "tags": [],
+            "url": "https://example.com",
+        }
+    }
+
+    # Metadata indicating conversion to blogPost
+    metadata = {
+        "type": "Article",
+        "title": "Test Article",
+        "author": "Test Author",
+        "date": "2024-01-01",
+        "publisher": "Test Blog",
+    }
+
+    # Test Substack conversion
+    result = prepare_substack_item_update(item, metadata)
+    assert result["itemType"] == "blogPost", "Item should be converted to blogPost"
+    assert "blogTitle" in result, "blogTitle should be set"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from blogPost"
+    assert "forumTitle" not in result, "forumTitle should not be present"
+    print("✅ Substack webpage → blogPost conversion removes websiteTitle")
+
+    # Test LinkedIn conversion
+    result = prepare_linkedin_item_update(item, metadata)
+    assert result["itemType"] == "blogPost", "Item should be converted to blogPost"
+    assert "blogTitle" in result, "blogTitle should be set"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from blogPost"
+    assert "forumTitle" not in result, "forumTitle should not be present"
+    print("✅ LinkedIn webpage → blogPost conversion removes websiteTitle")
+
+
+def test_forumpost_to_blogpost_conversion():
+    """Test that forumPost → blogPost conversion removes forumTitle and postType"""
+    # Mock forumPost item with forumTitle and postType
+    item = {
+        "data": {
+            "itemType": "forumPost",
+            "forumTitle": "Old Forum Title",
+            "postType": "Forum Post",
+            "creators": [],
+            "tags": [],
+            "url": "https://example.com",
+        }
+    }
+
+    # Metadata indicating conversion to blogPost
+    metadata = {
+        "type": "Article",
+        "title": "Test Article",
+        "author": "Test Author",
+        "date": "2024-01-01",
+        "publisher": "Test Blog",
+    }
+
+    # Test Substack conversion
+    result = prepare_substack_item_update(item, metadata)
+    assert result["itemType"] == "blogPost", "Item should be converted to blogPost"
+    assert "blogTitle" in result, "blogTitle should be set"
+    assert "forumTitle" not in result, "forumTitle should be removed from blogPost"
+    assert "postType" not in result, "postType should be removed from blogPost"
+    print("✅ Substack forumPost → blogPost conversion removes forumTitle and postType")
+
+    # Test LinkedIn conversion
+    result = prepare_linkedin_item_update(item, metadata)
+    assert result["itemType"] == "blogPost", "Item should be converted to blogPost"
+    assert "blogTitle" in result, "blogTitle should be set"
+    assert "forumTitle" not in result, "forumTitle should be removed from blogPost"
+    assert "postType" not in result, "postType should be removed from blogPost"
+    print("✅ LinkedIn forumPost → blogPost conversion removes forumTitle and postType")
+
+
+def test_blogpost_to_forumpost_conversion():
+    """Test that blogPost → forumPost conversion removes blogTitle"""
+    # Mock blogPost item with blogTitle
+    item = {
+        "data": {
+            "itemType": "blogPost",
+            "blogTitle": "Old Blog Title",
+            "creators": [],
+            "tags": [],
+            "url": "https://example.com",
+        }
+    }
+
+    # Metadata indicating conversion to forumPost
+    metadata = {
+        "type": "Comment",
+        "title": "Test Comment",
+        "author": "Test Author",
+        "date": "2024-01-01",
+        "publisher": "Test Forum",
+    }
+
+    # Test Substack conversion
+    result = prepare_substack_item_update(item, metadata)
+    assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
+    assert "forumTitle" in result, "forumTitle should be set"
+    assert "blogTitle" not in result, "blogTitle should be removed from forumPost"
+    print("✅ Substack blogPost → forumPost conversion removes blogTitle")
+
+    # Test LinkedIn conversion
+    result = prepare_linkedin_item_update(item, metadata)
+    assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
+    assert "forumTitle" in result, "forumTitle should be set"
+    assert "blogTitle" not in result, "blogTitle should be removed from forumPost"
+    print("✅ LinkedIn blogPost → forumPost conversion removes blogTitle")
+
+
 if __name__ == "__main__":
     print("Running field assignment tests...\n")
     test_forumpost_uses_forumtitle()
@@ -197,4 +418,12 @@ if __name__ == "__main__":
     test_forum_type_mappings()
     print()
     test_blog_type_mappings()
+    print("\nTesting type conversion scenarios...\n")
+    test_webpage_to_forumpost_conversion()
+    print()
+    test_webpage_to_blogpost_conversion()
+    print()
+    test_forumpost_to_blogpost_conversion()
+    print()
+    test_blogpost_to_forumpost_conversion()
     print("\n✨ All tests passed!")
