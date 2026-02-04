@@ -1118,8 +1118,10 @@ def generate_markdown_report(
         # Check if this is a Substack or LinkedIn post
         if data.get("websiteType") == "Substack Newsletter":
             # Get title from either forumTitle or blogTitle
-            blog_title = data.get("forumTitle") or data.get("blogTitle", "Unknown Blog")
-            substack_updates[blog_title].append(data)
+            publication_title = data.get("forumTitle") or data.get(
+                "blogTitle", "Unknown Blog"
+            )
+            substack_updates[publication_title].append(data)
         elif data.get("websiteType") == "LinkedIn":
             linkedin_updates.append(data)
         else:
