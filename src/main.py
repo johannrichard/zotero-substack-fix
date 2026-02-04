@@ -351,6 +351,35 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
     return metadata
 
 
+def validate_item_fields(item_data: Dict) -> Dict:
+    """
+    Validate and clean item fields based on item type to prevent sending
+    invalid fields to Zotero API.
+
+    Args:
+        item_data: Dictionary containing item data with itemType and other fields
+
+    Returns:
+        Cleaned item data with only valid fields for the item type
+    """
+    item_type = item_data.get("itemType")
+
+    # Create a copy to avoid modifying the original
+    validated_data = dict(item_data)
+
+    # Remove incompatible fields based on item type
+    if item_type == "forumPost":
+        # forumPost uses forumTitle, not blogTitle
+        if "blogTitle" in validated_data:
+            del validated_data["blogTitle"]
+    elif item_type == "blogPost":
+        # blogPost uses blogTitle, not forumTitle
+        if "forumTitle" in validated_data:
+            del validated_data["forumTitle"]
+
+    return validated_data
+
+
 def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     """
     Prepare an updated Zotero item with extracted metadata
@@ -370,11 +399,14 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     updated_data["websiteType"] = "Substack Newsletter"
 
     if metadata["title"]:
-        updated_data["title"] = metadata["title"];
-        
-    # Update blog title
+        updated_data["title"] = metadata["title"]
+
+    # Update blog/forum title based on item type
     if metadata["publisher"]:
-        updated_data["blogTitle"] = metadata["publisher"]
+        if updated_data["itemType"] == "forumPost":
+            updated_data["forumTitle"] = metadata["publisher"]
+        else:
+            updated_data["blogTitle"] = metadata["publisher"]
 
     # Handle date parsing and updates
     if metadata["date"]:
@@ -441,7 +473,8 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     if not any(tag["tag"] == "Substack" for tag in updated_data["tags"]):
         updated_data["tags"].append({"tag": "Substack"})
 
-    return updated_data
+    # Validate fields before returning
+    return validate_item_fields(updated_data)
 
 
 def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
@@ -465,10 +498,14 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     updated_data["websiteType"] = "LinkedIn"
 
     if metadata["title"]:
-        updated_data["title"] = metadata["title"];
-        
+        updated_data["title"] = metadata["title"]
+
+    # Update blog/forum title based on item type
     if metadata["publisher"]:
-        updated_data["blogTitle"] = metadata["publisher"]
+        if updated_data["itemType"] == "forumPost":
+            updated_data["forumTitle"] = metadata["publisher"]
+        else:
+            updated_data["blogTitle"] = metadata["publisher"]
 
     if metadata["date"]:
         try:
@@ -528,7 +565,8 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     if not any(tag["tag"] == "LinkedIn" for tag in updated_data["tags"]):
         updated_data["tags"].append({"tag": "LinkedIn"})
 
-    return updated_data
+    # Validate fields before returning
+    return validate_item_fields(updated_data)
 
 
 def process_item(
@@ -638,11 +676,16 @@ def process_item(
                 if old_authors != new_authors:
                     logger.info(f"Author: {old_authors or 'Not set'} → {new_authors}")
 
-            # Website/Blog
+            # Website/Blog/Forum
             if metadata["publisher"]:
-                logger.info(
-                    f"Website/Blog: {item['data'].get('blogTitle', 'Not set')} → {updated_data.get('blogTitle', 'Not set')}"
+                # Get old and new titles based on item type
+                old_title = item["data"].get("forumTitle") or item["data"].get(
+                    "blogTitle", "Not set"
                 )
+                new_title = updated_data.get("forumTitle") or updated_data.get(
+                    "blogTitle", "Not set"
+                )
+                logger.info(f"Website/Blog/Forum: {old_title} → {new_title}")
 
             logger.info("----------------")
         else:
@@ -729,7 +772,7 @@ def analyze_zotero_library(
         start += len(items)
         if len(items) < limit:
             break
-        
+
     # Filter for items with URLs
     web_items = [item for item in web_items if item["data"].get("url")]
 
@@ -745,7 +788,6 @@ def analyze_zotero_library(
             "errors": 0,
         }
     )
-
 
     logger.info(f"Found {total} web items to process.")
 
@@ -1059,7 +1101,8 @@ def generate_markdown_report(
 
         # Check if this is a Substack or LinkedIn post
         if data.get("websiteType") == "Substack Newsletter":
-            blog_title = data.get("blogTitle", "Unknown Blog")
+            # Get title from either forumTitle or blogTitle
+            blog_title = data.get("forumTitle") or data.get("blogTitle", "Unknown Blog")
             substack_updates[blog_title].append(data)
         elif data.get("websiteType") == "LinkedIn":
             linkedin_updates.append(data)
@@ -1150,7 +1193,7 @@ if __name__ == "__main__":
     try:
         args = parse_args()
         setup_logging(debug=args.debug)
-        logger.info(f"Starting Substack Analyzer...")
+        logger.info("Starting Substack Analyzer...")
 
         if args.test_yaml:
             run_yaml_tests(args.test_yaml)
