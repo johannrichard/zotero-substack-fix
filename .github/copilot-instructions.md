@@ -7,7 +7,7 @@ Welcome! This repository has detailed AI agent collaboration guidelines.
 **Please read [AGENTS.md](../AGENTS.md) for complete guidelines** including:
 
 - Commit message format (Conventional Commits with emoji icons)
-- Code change philosophy (minimal, conservative changes)
+- Code change philosophy (minimal, conservative changes; avoid unnecessary abstractions)
 - Testing requirements
 - Code quality standards
 - Development workflow
@@ -15,7 +15,7 @@ Welcome! This repository has detailed AI agent collaboration guidelines.
 ## Quick Reference
 
 ### Commit Format
-Use: `<type>: <emoji> <description>`
+Use Conventional Commits: `<type>: <emoji> <description>`
 
 Examples:
 - `feat: ✨ Add new feature`
