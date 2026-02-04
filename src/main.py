@@ -356,24 +356,36 @@ def validate_item_fields(item_data: Dict) -> Dict:
     Validate and clean item fields based on item type to prevent sending
     invalid fields to Zotero API.
 
+    Based on Zotero API v3 schema documentation:
+    - forumPost item type has valid field: forumTitle
+      (https://www.zotero.org/support/dev/web_api/v3/types_and_fields)
+    - blogPost item type has valid field: blogTitle
+    - Sending incompatible fields will cause API validation errors
+
     Args:
         item_data: Dictionary containing item data with itemType and other fields
 
     Returns:
         Cleaned item data with only valid fields for the item type
+
+    References:
+        Zotero Schema: https://github.com/zotero/zotero-schema
+        API Docs: https://www.zotero.org/support/dev/web_api/v3/types_and_fields
     """
     item_type = item_data.get("itemType")
 
     # Create a copy to avoid modifying the original
     validated_data = dict(item_data)
 
-    # Remove incompatible fields based on item type
+    # Remove incompatible fields based on item type per Zotero schema
     if item_type == "forumPost":
-        # forumPost uses forumTitle, not blogTitle
+        # Per Zotero schema: forumPost uses forumTitle, not blogTitle
+        # Valid fields include: forumTitle, postType, title, creators, etc.
         if "blogTitle" in validated_data:
             del validated_data["blogTitle"]
     elif item_type == "blogPost":
-        # blogPost uses blogTitle, not forumTitle
+        # Per Zotero schema: blogPost uses blogTitle, not forumTitle
+        # Valid fields include: blogTitle, websiteType, title, creators, etc.
         if "forumTitle" in validated_data:
             del validated_data["forumTitle"]
 
@@ -401,7 +413,9 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     if metadata["title"]:
         updated_data["title"] = metadata["title"]
 
-    # Update blog/forum title based on item type
+    # Update blog/forum title based on item type per Zotero schema
+    # Per Zotero API: forumPost uses 'forumTitle', blogPost uses 'blogTitle'
+    # Reference: https://www.zotero.org/support/dev/web_api/v3/types_and_fields
     if metadata["publisher"]:
         if updated_data["itemType"] == "forumPost":
             updated_data["forumTitle"] = metadata["publisher"]
@@ -500,7 +514,9 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     if metadata["title"]:
         updated_data["title"] = metadata["title"]
 
-    # Update blog/forum title based on item type
+    # Update blog/forum title based on item type per Zotero schema
+    # Per Zotero API: forumPost uses 'forumTitle', blogPost uses 'blogTitle'
+    # Reference: https://www.zotero.org/support/dev/web_api/v3/types_and_fields
     if metadata["publisher"]:
         if updated_data["itemType"] == "forumPost":
             updated_data["forumTitle"] = metadata["publisher"]
