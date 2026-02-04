@@ -6,6 +6,8 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
 
 - Identifies Substack posts hosted on custom domains
 - Updates metadata for Substack posts (dates, authors, etc.)
+- Properly distinguishes between item types (forum posts, blog posts, articles)
+- Sets correct field types: `forumTitle` for forum posts, `blogTitle` for blog posts
 - Cleans URLs by removing tracking parameters
 - Adds appropriate tags for categorization
 - Generates detailed reports of changes
@@ -13,6 +15,7 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
 - Batch processing to handle large libraries efficiently
 - Real-time processing via Zotero's Streaming API
 - Supports both batch and streaming modes
+- Validates item fields to prevent invalid Zotero API requests
 
 ## Prerequisites
 
@@ -159,6 +162,38 @@ The generated report includes:
 - Substack metadata changes
 - Items grouped by blog/publisher
 - Timestamps and detailed modifications
+
+## Item Type Handling
+
+The script intelligently categorizes content based on JSON-LD metadata:
+
+### Forum Posts
+
+Content types mapped to `forumPost` in Zotero:
+- Comments
+- Discussion forum postings
+- Social media postings (e.g., Substack Notes, LinkedIn posts)
+
+Forum posts use the `forumTitle` field to store the publisher/platform name.
+
+### Blog Posts
+
+Content types mapped to `blogPost` in Zotero:
+- Articles
+- Blog postings
+- News articles
+- LinkedIn Articles
+
+Blog posts use the `blogTitle` field to store the blog/publication name.
+
+### Field Validation
+
+The script validates all fields before sending to Zotero's API to ensure:
+- `forumPost` items only have `forumTitle` (not `blogTitle`)
+- `blogPost` items only have `blogTitle` (not `forumTitle`)
+- Invalid field combinations are automatically cleaned up
+
+This prevents API errors and ensures proper metadata organization in your Zotero library.
 
 ## License
 
