@@ -999,13 +999,13 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
             # Check for correct field based on item type (forumPost uses postType, blogPost uses websiteType)
             if updated_item.get("itemType") == "forumPost":
                 has_website_type = updated_item.get("postType") in [
-                    "Substack Newsletter",
-                    "LinkedIn",
+                    "Substack Note",
+                    "LinkedIn Post",
                 ]
             else:
                 has_website_type = updated_item.get("websiteType") in [
                     "Substack Newsletter",
-                    "LinkedIn",
+                    "LinkedIn Pulse",
                 ]
             has_creators = (
                 len(updated_item.get("creators", [])) > 0
