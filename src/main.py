@@ -385,19 +385,30 @@ def validate_item_fields(item_data: Dict) -> Dict:
 
     # Remove incompatible fields based on item type per Zotero schema
     if item_type == "forumPost":
-        # Per Zotero schema: forumPost uses forumTitle, not blogTitle or websiteTitle
-        # Valid fields include: forumTitle, postType, title, creators, etc.
+        # Per Zotero schema: forumPost uses forumTitle and postType
+        # Invalid fields: blogTitle, websiteTitle, websiteType
         if "blogTitle" in validated_data:
             del validated_data["blogTitle"]
         if "websiteTitle" in validated_data:
             del validated_data["websiteTitle"]
+        if "websiteType" in validated_data:
+            del validated_data["websiteType"]
     elif item_type == "blogPost":
-        # Per Zotero schema: blogPost uses blogTitle, not forumTitle or websiteTitle
-        # Valid fields include: blogTitle, websiteType, title, creators, etc.
+        # Per Zotero schema: blogPost uses blogTitle and websiteType
+        # Invalid fields: forumTitle, postType, websiteTitle
         if "forumTitle" in validated_data:
             del validated_data["forumTitle"]
         if "websiteTitle" in validated_data:
             del validated_data["websiteTitle"]
+        if "postType" in validated_data:
+            del validated_data["postType"]
+    elif item_type == "webpage":
+        # Per Zotero schema: webpage uses websiteTitle and websiteType
+        # Invalid fields: blogTitle, forumTitle, postType
+        if "blogTitle" in validated_data:
+            del validated_data["blogTitle"]
+        if "forumTitle" in validated_data:
+            del validated_data["forumTitle"]
         if "postType" in validated_data:
             del validated_data["postType"]
 
