@@ -385,19 +385,30 @@ def validate_item_fields(item_data: Dict) -> Dict:
 
     # Remove incompatible fields based on item type per Zotero schema
     if item_type == "forumPost":
-        # Per Zotero schema: forumPost uses forumTitle, not blogTitle or websiteTitle
-        # Valid fields include: forumTitle, postType, title, creators, etc.
+        # Per Zotero schema: forumPost uses forumTitle and postType
+        # Invalid fields: blogTitle, websiteTitle, websiteType
         if "blogTitle" in validated_data:
             del validated_data["blogTitle"]
         if "websiteTitle" in validated_data:
             del validated_data["websiteTitle"]
+        if "websiteType" in validated_data:
+            del validated_data["websiteType"]
     elif item_type == "blogPost":
-        # Per Zotero schema: blogPost uses blogTitle, not forumTitle or websiteTitle
-        # Valid fields include: blogTitle, websiteType, title, creators, etc.
+        # Per Zotero schema: blogPost uses blogTitle and websiteType
+        # Invalid fields: forumTitle, postType, websiteTitle
         if "forumTitle" in validated_data:
             del validated_data["forumTitle"]
         if "websiteTitle" in validated_data:
             del validated_data["websiteTitle"]
+        if "postType" in validated_data:
+            del validated_data["postType"]
+    elif item_type == "webpage":
+        # Per Zotero schema: webpage uses websiteTitle and websiteType
+        # Invalid fields: blogTitle, forumTitle, postType
+        if "blogTitle" in validated_data:
+            del validated_data["blogTitle"]
+        if "forumTitle" in validated_data:
+            del validated_data["forumTitle"]
         if "postType" in validated_data:
             del validated_data["postType"]
 
@@ -418,9 +429,10 @@ def prepare_substack_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
         "SocialMediaPosting",
     ]:
         updated_data["itemType"] = "forumPost"
+        updated_data["postType"] = "Substack Note"
     else:
         updated_data["itemType"] = "blogPost"
-    updated_data["websiteType"] = "Substack Newsletter"
+        updated_data["websiteType"] = "Substack Newsletter"
 
     if metadata["title"]:
         updated_data["title"] = metadata["title"]
@@ -519,9 +531,10 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
         "SocialMediaPosting",
     ]:
         updated_data["itemType"] = "forumPost"
+        updated_data["postType"] = "LinkedIn Post"
     else:
         updated_data["itemType"] = "blogPost"
-    updated_data["websiteType"] = "LinkedIn"
+        updated_data["websiteType"] = "LinkedIn Pulse"
 
     if metadata["title"]:
         updated_data["title"] = metadata["title"]
@@ -659,12 +672,10 @@ def process_item(
             if is_substack:
                 logger.info(f"✓ Substack detected for: {title[:50]}...")
                 stats["substackFound"] += 1
+                updated_data = prepare_substack_item_update(item, metadata)
             else:
                 logger.info(f"✓ LinkedIn detected for: {title[:50]}...")
                 stats["linkedinFound"] += 1
-            if is_substack:
-                updated_data = prepare_substack_item_update(item, metadata)
-            else:
                 updated_data = prepare_linkedin_item_update(item, metadata)
 
             updated_data["url"] = cleaned_url
@@ -725,8 +736,9 @@ def process_item(
         # Add a tag to indicate processing
         if "tags" not in updated_data:
             updated_data["tags"] = []
-        updated_data["tags"].append({"tag": "zotero:processed"})
-        logger.debug("✓ Tag added: zotero:processed")
+        if not any(tag["tag"] == "zotero:processed" for tag in updated_data["tags"]):
+            updated_data["tags"].append({"tag": "zotero:processed"})
+            logger.debug("✓ Tag added: zotero:processed")
 
     return updated_data if needs_update else None
 
@@ -858,7 +870,6 @@ def analyze_zotero_library(
             if len(batch_updates) >= 50 or item == web_items[-1]:
                 logger.info(f"\nBatch updating {len(batch_updates)} items...")
                 try:
-                    logger.info(f"Batch update data: {batch_updates}")
                     zot.update_items(batch_updates)
                     logger.info(f"✓ Successfully updated {len(batch_updates)} items")
                     batch_updates = []
@@ -985,10 +996,17 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
         has_creators = False
         if updated_item:
             item_type_ok = updated_item.get("itemType") == expected.get("type")
-            has_website_type = updated_item.get("websiteType") in [
-                "Substack Newsletter",
-                "LinkedIn",
-            ]
+            # Check for correct field based on item type (forumPost uses postType, blogPost uses websiteType)
+            if updated_item.get("itemType") == "forumPost":
+                has_website_type = updated_item.get("postType") in [
+                    "Substack Note",
+                    "LinkedIn Post",
+                ]
+            else:
+                has_website_type = updated_item.get("websiteType") in [
+                    "Substack Newsletter",
+                    "LinkedIn Pulse",
+                ]
             has_creators = (
                 len(updated_item.get("creators", [])) > 0
                 if extracted["author"]
@@ -1033,9 +1051,15 @@ def run_yaml_tests(yaml_path: str = "tests/data.yaml"):
                     f"    Item Type Issue: Expected {expected.get('type', 'N/A')}, got {updated_item.get('itemType', 'Missing')}"
                 )
             if not has_website_type and updated_item:
-                logger.info(
-                    f"    Website Type Issue: {updated_item.get('websiteType', 'Missing')}"
-                )
+                # Show the correct field based on item type
+                if updated_item.get("itemType") == "forumPost":
+                    logger.info(
+                        f"    Post Type Issue: {updated_item.get('postType', 'Missing')}"
+                    )
+                else:
+                    logger.info(
+                        f"    Website Type Issue: {updated_item.get('websiteType', 'Missing')}"
+                    )
             if not has_creators and extracted["author"] and updated_item:
                 logger.info(f"    Authors Issue: {updated_item.get('creators', [])}")
 
@@ -1150,8 +1174,8 @@ def generate_markdown_report(
             md_content.append(f"\n### {item.get('title', 'Untitled')}")
             md_content.append(f"- Original URL: {item.get('original_url', 'No URL')}")
             md_content.append(f"- Cleaned URL: {item.get('url', 'No URL')}")
+            md_content.append(f"- Type: {item.get('itemType', 'N/A')}")
             md_content.append("")
-
     # Report Substack updates
     if substack_updates:
         md_content.append("\n## Substack Updates")
@@ -1159,6 +1183,9 @@ def generate_markdown_report(
             md_content.append(f"\n### {blog}")
             for item in sorted(items, key=lambda x: x.get("title", "")):
                 md_content.append(f"\n#### {item.get('title', 'Untitled')}")
+                md_content.append(
+                    f"- Zotero URI: https://www.zotero.org/johannrichard/items/{item.get('key', 'N/A')}/library"
+                )
                 md_content.append(f"- Type: {item.get('itemType', 'N/A')}")
                 md_content.append(f"- URL: {item.get('url', 'No URL')}")
                 if item.get("date"):
@@ -1176,6 +1203,9 @@ def generate_markdown_report(
         md_content.append("\n## LinkedIn Updates")
         for item in sorted(linkedin_updates, key=lambda x: x.get("title", "")):
             md_content.append(f"\n### {item.get('title', 'Untitled')}")
+            md_content.append(
+                f"- Zotero URI: https://www.zotero.org/johannrichard/items/{item.get('key', 'N/A')}/library"
+            )
             md_content.append(f"- Type: {item.get('itemType', 'N/A')}")
             md_content.append(f"- URL: {item.get('url', 'No URL')}")
             if item.get("date"):
