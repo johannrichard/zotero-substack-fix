@@ -9,13 +9,14 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
 - Properly distinguishes between item types (forum posts, blog posts, articles)
 - Sets correct field types: `forumTitle` for forum posts, `blogTitle` for blog posts
 - Cleans URLs by removing tracking parameters
-- Adds appropriate tags for categorization
+- Adds appropriate tags for categorisation
 - Generates detailed reports of changes
 - Supports both personal and group libraries
 - Batch processing to handle large libraries efficiently
 - Real-time processing via Zotero's Streaming API
 - Supports both batch and streaming modes
 - Validates item fields to prevent invalid Zotero API requests
+- **LLM fallback** — when JSON-LD extraction yields no title or author, a headless browser fetches the rendered page and an LLM extracts the missing fields (opt-in, see below)
 
 ## Prerequisites
 
@@ -39,7 +40,14 @@ Zotero (both the Web Scraper and the Apps) currently fail to properly identify S
    make install
    ```
 
-3. Create a `.env` file with your Zotero credentials:
+3. Create a `.env` file with your Zotero credentials (copy `.env.example` as a starting point):
+
+   ```bash
+   cp .env.example .env
+   # then edit .env with your actual values
+   ```
+
+   Minimum required values:
 
    ```bash
    cat > .env << EOF
@@ -125,7 +133,50 @@ In streaming mode, the script will:
 - `--report [FILE]`: Generate a Markdown report of changes (default: `Changes_YYYYMMDD.md`)
 - `--stream`: Run in streaming mode to process updates in real-time
 
-## Development
+## LLM Fallback Mode
+
+When regular JSON-LD metadata extraction yields no title or author for a detected Substack or LinkedIn item, the script can fall back to fetching a fully-rendered copy of the page using a headless Chromium browser (Playwright) and asking an LLM to extract the missing fields.
+
+This is **opt-in** and disabled by default.
+
+### Setup
+
+1. Add the following variables to your `.env` file:
+
+   ```bash
+   LLM_ENABLED=true
+   LLM_PROVIDER=openai          # openai | anthropic | gemini
+   LLM_MODEL=gpt-4o-mini        # model name for your chosen provider
+   LLM_API_KEY=sk-...           # your provider API key
+   # LLM_MAX_CHARS=12000        # optional: limit page text sent to the LLM
+   ```
+
+2. Install the Playwright browser once:
+
+   ```bash
+   make setup-playwright
+   ```
+
+### How it works
+
+The fallback fires only when all three conditions are true:
+
+1. The item was identified as Substack or LinkedIn.
+2. Regular JSON-LD extraction left the title **or** author empty.
+3. `LLM_ENABLED=true` is set in your `.env`.
+
+The visible page text (truncated to `LLM_MAX_CHARS` characters, default 12 000) is sent to the LLM with a strict JSON schema prompt. The LLM response is merged back — it fills only the fields that JSON-LD left empty, so existing values are never overwritten.
+
+### Supported providers
+
+| Provider | `LLM_PROVIDER` value | Example model |
+|---|---|---|
+| OpenAI | `openai` | `gpt-4o-mini` |
+| Anthropic | `anthropic` | `claude-3-5-haiku-20241022` |
+| Google Gemini | `gemini` | `gemini-2.0-flash` |
+
+> **Note** — `anthropic` requires `pip install anthropic`; `gemini` requires
+> `pip install google-generativeai`. The `openai` SDK is installed by default.
 
 - Format code:
 

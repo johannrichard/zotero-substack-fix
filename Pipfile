@@ -13,6 +13,9 @@ w3lib = "*"
 backoff = "*"  # For exponential retry
 websockets = ">=10.0"
 pyyaml = "*"
+# Optional: required only when LLM_ENABLED=true (run 'make setup-playwright' after install)
+playwright = {version = "*", extras = []}
+openai = {version = "*", extras = []}
 
 [dev-packages]
 black = "*"
