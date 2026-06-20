@@ -56,7 +56,7 @@ Required JSON keys (use empty string "" when a value cannot be determined):
                 "DiscussionForumPosting", "Comment", "Article", or ""
 
 Rules:
-- "author" must be a real person's name. If only an organisation name is
+- "author" must be a real person's name. If only an organization name is
   present, set author to "".
 - Do not invent or guess values; use "" for genuinely unknown fields.
 - Return valid JSON only.
@@ -95,10 +95,12 @@ def _fetch_rendered_text(url: str, max_chars: int) -> Optional[str]:
     try:
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=20_000)
-            text = page.inner_text("body")
-            browser.close()
+            try:
+                page = browser.new_page()
+                page.goto(url, wait_until="domcontentloaded", timeout=20_000)
+                text = page.inner_text("body")
+            finally:
+                browser.close()
         return text[:max_chars] if text else None
     except Exception as exc:
         logger.warning(f"LLM fallback: Playwright fetch failed for {url}: {exc}")
@@ -161,8 +163,13 @@ def _call_gemini(text: str, model: str, api_key: str) -> Dict[str, str]:
     return json.loads(raw)
 
 
-def _normalise(raw: Dict) -> Dict[str, str]:
-    """Coerce the LLM response into the expected flat string dict."""
+def _normalize(raw: Dict) -> Dict[str, str]:
+    """
+    Coerce the LLM response into the expected flat string dict.
+
+    Ensures all keys from ``_EMPTY`` are present and that every value is a
+    stripped string.  Keys missing from *raw* default to empty string.
+    """
     result = dict(_EMPTY)
     for key in _EMPTY:
         val = raw.get(key, "")
@@ -205,7 +212,7 @@ def extract_metadata_with_llm(url: str) -> Dict[str, str]:
             logger.warning(f"LLM fallback: unknown provider '{provider}' — skipping.")
             return dict(_EMPTY)
 
-        metadata = _normalise(raw)
+        metadata = _normalize(raw)
         logger.info(
             f"LLM fallback: extracted title='{metadata['title'][:60]}' "
             f"author='{metadata['author']}'"

@@ -324,7 +324,7 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
             metadata["type"] = target_item.get("@type", "")
 
             # 1. Author (Exact string preservation)
-            # Reject known platform/organisation names that Substack and LinkedIn
+            # Reject known platform/organization names that Substack and LinkedIn
             # occasionally embed as the author in JSON-LD (e.g. {"name": "Substack"}).
             # We also discard the author when it duplicates the publisher name, since
             # that indicates the platform—not the human—was recorded.
@@ -346,14 +346,14 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
 
             # Pick the first author that is not a blocked platform name and not the
             # publisher itself.
-            for candidate in raw_authors:
-                candidate = candidate.strip()
+            for raw_candidate in raw_authors:
+                stripped = raw_candidate.strip()
                 if (
-                    candidate
-                    and candidate not in PLATFORM_AUTHOR_BLOCKLIST
-                    and candidate != publisher_name
+                    stripped
+                    and stripped not in PLATFORM_AUTHOR_BLOCKLIST
+                    and stripped != publisher_name
                 ):
-                    metadata["author"] = candidate
+                    metadata["author"] = stripped
                     break
 
             # 2. Title Logic (Headline vs. 20-word Text fallback)
