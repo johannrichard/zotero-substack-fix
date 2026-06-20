@@ -8,8 +8,8 @@ import os
 import re
 import argparse
 import logging
-import requests
 import zipfile
+import requests
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
