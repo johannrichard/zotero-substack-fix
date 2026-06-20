@@ -3,11 +3,13 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import io
 import os
 import re
 import argparse
 import logging
 import requests
+import zipfile
 from typing import Dict, List, Optional
 from dotenv import load_dotenv
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
@@ -646,17 +648,94 @@ def prepare_linkedin_item_update(item: Dict, metadata: Dict[str, str]) -> Dict:
     return validate_item_fields(updated_data)
 
 
+def get_snapshot_html(zot: zotero.Zotero, item_key: str) -> str:
+    """
+    Retrieve HTML from a stored Zotero webpage snapshot for the given item.
+
+    Zotero stores web snapshots as child attachment items with
+    linkMode 'imported_url' or 'imported_file' and contentType 'text/html'.
+    The actual file is a zip archive containing the HTML and page resources.
+
+    Args:
+        zot: Authenticated Pyzotero client
+        item_key: Key of the parent Zotero item
+
+    Returns:
+        HTML content string, or empty string if no usable snapshot is found
+    """
+    try:
+        children = zot.children(item_key)
+    except Exception as e:
+        logger.debug(f"Could not retrieve children for {item_key}: {e}")
+        return ""
+
+    for child in children:
+        data = child.get("data", {})
+        if (
+            data.get("itemType") == "attachment"
+            and data.get("contentType") == "text/html"
+            and data.get("linkMode") in ("imported_url", "imported_file")
+        ):
+            attachment_key = child["key"]
+            logger.debug(
+                f"Found HTML snapshot attachment {attachment_key} for item {item_key}"
+            )
+            try:
+                content = zot.file(attachment_key)
+                if not content:
+                    continue
+                # Zotero snapshots are stored as zip archives containing the HTML
+                try:
+                    with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                        names = zf.namelist()
+                        html_files = [
+                            n for n in names if n.lower().endswith(".html")
+                        ]
+                        if not html_files:
+                            continue
+                        # Prefer root-level files over nested resource folders
+                        root_html = [n for n in html_files if "/" not in n]
+                        main_file = root_html[0] if root_html else html_files[0]
+                        html = zf.read(main_file).decode("utf-8", errors="replace")
+                        logger.debug(
+                            f"Loaded snapshot HTML from zip entry '{main_file}' "
+                            f"for item {item_key}"
+                        )
+                        return html
+                except zipfile.BadZipFile:
+                    # Not a zip – may be raw HTML stored directly
+                    if isinstance(content, bytes):
+                        return content.decode("utf-8", errors="replace")
+                    return str(content)
+            except Exception as e:
+                logger.debug(
+                    f"Could not download snapshot {attachment_key}: {e}"
+                )
+
+    return ""
+
+
 def process_item(
     item: Dict,
     exclude_substack: bool = False,
     exclude_linkedin: bool = False,
     force: bool = False,
+    zot: Optional[zotero.Zotero] = None,
 ) -> Optional[Dict]:
     """
     Process a single Zotero item, cleaning URL and checking for Substack/LinkedIn metadata
 
+    When a Pyzotero client is supplied via ``zot``, the function first looks for
+    an existing webpage snapshot attachment on the item and uses its HTML instead
+    of downloading from the network.  A live download is performed only when no
+    usable snapshot is found.
+
     Args:
         item: Zotero item to process
+        exclude_substack: Skip Substack items when True
+        exclude_linkedin: Skip LinkedIn items when True
+        force: Re-process items already tagged as zotero:processed
+        zot: Optional authenticated Pyzotero client used to retrieve snapshots
 
     Returns:
         Updated item data if changes needed, None otherwise
@@ -696,7 +775,14 @@ def process_item(
             )
             return updated_data if needs_update else None
 
-        html = download_page(cleaned_url)
+        # Prefer an existing Zotero snapshot over a live network request
+        html = ""
+        if zot:
+            html = get_snapshot_html(zot, item["key"])
+            if html:
+                logger.debug(f"Using stored snapshot for: {title[:50]}...")
+        if not html:
+            html = download_page(cleaned_url)
 
         is_substack = html and (
             check_if_substack(html, url) or is_substack_note_url(url)
@@ -899,6 +985,7 @@ def analyze_zotero_library(
                 exclude_substack=exclude_substack,
                 exclude_linkedin=exclude_linkedin,
                 force=force,
+                zot=zot,
             )
         except Exception as e:
             logger.error(f"Error processing item {item.get('key')}: {str(e)}")
