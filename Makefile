@@ -1,4 +1,4 @@
-.PHONY: help install update clean run dry-run check format lint test hydrate-fixtures
+.PHONY: help install update clean run dry-run check format lint test hydrate-fixtures setup-playwright
 
 # Python settings
 PYTHON := python3
@@ -9,6 +9,9 @@ help:  ## Show this help
 
 install:  ## Install project dependencies (`pip` and `pipenv` need to be instaled separately)
 	$(PIPENV) install --dev
+
+setup-playwright:  ## Install Playwright browsers (required for LLM fallback mode)
+	$(PIPENV) run playwright install chromium
 
 update:  ## Update dependencies to latest versions
 	$(PIPENV) update

@@ -14,6 +14,8 @@ from main import (
     prepare_substack_item_update,
     prepare_linkedin_item_update,
     validate_item_fields,
+    extract_metadata,
+    PLATFORM_AUTHOR_BLOCKLIST,
 )
 
 
@@ -181,7 +183,6 @@ def test_validate_item_fields():
     print("✅ Validation correctly cleans up multiple invalid fields from blogPost")
 
 
-
 def test_forum_type_mappings():
     """Test that Comment, DiscussionForumPosting, and SocialMediaPosting map to forumPost"""
     item = {"data": {"creators": [], "tags": [], "url": "https://example.com"}}
@@ -276,9 +277,7 @@ def test_webpage_to_forumpost_conversion():
     result = prepare_substack_item_update(item, metadata)
     assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
     assert "forumTitle" in result, "forumTitle should be set"
-    assert (
-        "websiteTitle" not in result
-    ), "websiteTitle should be removed from forumPost"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from forumPost"
     assert "blogTitle" not in result, "blogTitle should not be present"
     print("✅ Substack webpage → forumPost conversion removes websiteTitle")
 
@@ -286,9 +285,7 @@ def test_webpage_to_forumpost_conversion():
     result = prepare_linkedin_item_update(item, metadata)
     assert result["itemType"] == "forumPost", "Item should be converted to forumPost"
     assert "forumTitle" in result, "forumTitle should be set"
-    assert (
-        "websiteTitle" not in result
-    ), "websiteTitle should be removed from forumPost"
+    assert "websiteTitle" not in result, "websiteTitle should be removed from forumPost"
     assert "blogTitle" not in result, "blogTitle should not be present"
     print("✅ LinkedIn webpage → forumPost conversion removes websiteTitle")
 
@@ -409,6 +406,69 @@ def test_blogpost_to_forumpost_conversion():
     print("✅ LinkedIn blogPost → forumPost conversion removes blogTitle")
 
 
+def test_platform_author_blocklist():
+    """Test that platform names are not returned as author in extract_metadata."""
+    import json
+
+    def _make_html(author_name: str, publisher_name: str = "Substack") -> str:
+        """Build minimal HTML with a JSON-LD SocialMediaPosting block."""
+        ld = {
+            "@context": "https://schema.org",
+            "@type": "SocialMediaPosting",
+            "text": "Some note text here",
+            "author": {"@type": "Person", "name": author_name},
+            "publisher": {"@type": "Organization", "name": publisher_name},
+        }
+        return f"<html><head><script type='application/ld+json'>{json.dumps(ld)}</script></head><body></body></html>"
+
+    # 1. Platform name as sole author → should yield empty author
+    for blocked in PLATFORM_AUTHOR_BLOCKLIST:
+        html = _make_html(blocked)
+        result = extract_metadata(html, "https://substack.com/@test/note/c-123")
+        assert result["author"] == "", (
+            f"Expected empty author when JSON-LD author is blocked name '{blocked}', "
+            f"got: '{result['author']}'"
+        )
+    print("✅ Blocked platform names are not returned as author")
+
+    # 2. Author matches publisher → should yield empty author
+    html = _make_html("My Newsletter", "My Newsletter")
+    result = extract_metadata(html, "https://substack.com/@test/note/c-123")
+    assert (
+        result["author"] == ""
+    ), f"Expected empty author when author == publisher, got: '{result['author']}'"
+    print("✅ Author equal to publisher is not returned as author")
+
+    # 3. Real human name is preserved
+    html = _make_html("Jane Doe", "Some Newsletter")
+    result = extract_metadata(html, "https://substack.com/@test/note/c-123")
+    assert (
+        result["author"] == "Jane Doe"
+    ), f"Expected 'Jane Doe', got: '{result['author']}'"
+    print("✅ Real human author name is preserved")
+
+    # 4. List of authors: first blocked, second is human → human should be used
+    ld = {
+        "@context": "https://schema.org",
+        "@type": "SocialMediaPosting",
+        "text": "A note",
+        "author": [
+            {"@type": "Organization", "name": "Substack"},
+            {"@type": "Person", "name": "Alice Smith"},
+        ],
+        "publisher": {"@type": "Organization", "name": "Substack"},
+    }
+    html = (
+        f"<html><head><script type='application/ld+json'>{json.dumps(ld)}</script></head>"
+        "<body></body></html>"
+    )
+    result = extract_metadata(html, "https://substack.com/@test/note/c-123")
+    assert (
+        result["author"] == "Alice Smith"
+    ), f"Expected 'Alice Smith' from author list, got: '{result['author']}'"
+    print("✅ Second author used when first is a blocked platform name")
+
+
 if __name__ == "__main__":
     print("Running field assignment tests...\n")
     test_forumpost_uses_forumtitle()
@@ -426,4 +486,6 @@ if __name__ == "__main__":
     test_forumpost_to_blogpost_conversion()
     print()
     test_blogpost_to_forumpost_conversion()
+    print("\nTesting author platform-name filter...\n")
+    test_platform_author_blocklist()
     print("\n✨ All tests passed!")

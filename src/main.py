@@ -22,6 +22,7 @@ import asyncio
 import yaml
 from streaming import ZoteroStreamHandler
 from dataclasses import dataclass
+from llm_extractor import extract_metadata_with_llm, is_llm_enabled
 
 # Setup logging (initial level, will be reconfigured based on debug flag)
 logging.basicConfig(
@@ -53,6 +54,17 @@ def setup_logging(debug: bool = False) -> None:
 
 # Constants
 TITLE_FALLBACK_WORD_LIMIT = 20  # APA citation style: first 20 words for posts/comments
+
+# Platform/organisation names that appear in JSON-LD author fields but are not real authors.
+# When one of these is the only resolved author name, the author field is left empty so that
+# the LLM fallback (or a manual edit) can supply the actual human author.
+PLATFORM_AUTHOR_BLOCKLIST = {
+    "Substack",
+    "Substack Inc.",
+    "LinkedIn",
+    "LinkedIn News",
+    "LinkedIn Pulse",
+}
 
 # Statistics for reporting
 stats = {
@@ -312,13 +324,37 @@ def extract_metadata(html: str, url: str) -> Dict[str, str]:
             metadata["type"] = target_item.get("@type", "")
 
             # 1. Author (Exact string preservation)
+            # Reject known platform/organisation names that Substack and LinkedIn
+            # occasionally embed as the author in JSON-LD (e.g. {"name": "Substack"}).
+            # We also discard the author when it duplicates the publisher name, since
+            # that indicates the platform—not the human—was recorded.
             author_field = target_item.get("author")
+            raw_authors: list[str] = []
             if isinstance(author_field, list) and author_field:
-                metadata["author"] = author_field[0].get("name", "")
+                raw_authors = [
+                    a.get("name", "") for a in author_field if isinstance(a, dict)
+                ]
             elif isinstance(author_field, dict):
-                metadata["author"] = author_field.get("name", "")
-            else:
-                metadata["author"] = str(author_field) if author_field else ""
+                raw_authors = [author_field.get("name", "")]
+            elif author_field:
+                raw_authors = [str(author_field)]
+
+            publisher_name = ""
+            _pub = target_item.get("publisher", {})
+            if isinstance(_pub, dict):
+                publisher_name = _pub.get("name", "")
+
+            # Pick the first author that is not a blocked platform name and not the
+            # publisher itself.
+            for candidate in raw_authors:
+                candidate = candidate.strip()
+                if (
+                    candidate
+                    and candidate not in PLATFORM_AUTHOR_BLOCKLIST
+                    and candidate != publisher_name
+                ):
+                    metadata["author"] = candidate
+                    break
 
             # 2. Title Logic (Headline vs. 20-word Text fallback)
             if target_item.get("@type") in ["NewsArticle", "BlogPosting", "Article"]:
@@ -666,6 +702,20 @@ def process_item(
             check_if_substack(html, url) or is_substack_note_url(url)
         )
         metadata = extract_metadata(html, url) if html else {}
+
+        # LLM fallback: kick in when JSON-LD extraction is incomplete (missing
+        # title or author) and the LLM feature is enabled via LLM_ENABLED=true.
+        if html and (is_substack or is_linkedin) and is_llm_enabled():
+            metadata_incomplete = not metadata.get("title") or not metadata.get(
+                "author"
+            )
+            if metadata_incomplete:
+                logger.info(f"JSON-LD incomplete — trying LLM fallback for: {url}")
+                llm_meta = extract_metadata_with_llm(cleaned_url)
+                # Merge: LLM fills in only the gaps left by JSON-LD extraction
+                for field in ("title", "author", "date", "publisher", "type"):
+                    if not metadata.get(field) and llm_meta.get(field):
+                        metadata[field] = llm_meta[field]
 
         if html and (is_substack or is_linkedin):
             global stats
